@@ -40,6 +40,16 @@
     return Math.max(0, Math.min(100, value));
   }
 
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    }[character]));
+  }
+
   function renderGaugeChart(canvasId, value, color = '#2ab7ff') {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
@@ -78,22 +88,67 @@
 
     const summary = project.analysis.model.summary;
     const scores = project.analysis.assessment.scores;
+    const hasSemanticModel = project.metadata.semanticModelAvailable !== false;
     const cards = [
-      { label: 'Total tables', value: summary.tableCount },
-      { label: 'Total measures', value: summary.measureCount },
-      { label: 'Calculated columns', value: summary.calculatedColumnCount },
-      { label: 'Relationships', value: summary.relationshipCount },
+      { label: 'Total tables', value: hasSemanticModel ? summary.tableCount : 'N/A' },
+      { label: 'Total measures', value: hasSemanticModel ? summary.measureCount : 'N/A' },
+      { label: 'Calculated columns', value: hasSemanticModel ? summary.calculatedColumnCount : 'N/A' },
+      { label: 'Relationships', value: hasSemanticModel ? summary.relationshipCount : 'N/A' },
       { label: 'Report pages', value: summary.reportPageCount },
       { label: 'Visual count', value: summary.visualCount },
     ];
 
-    const gaugeEntries = [
+    const gaugeEntries = hasSemanticModel ? [
       { label: 'Complexity', value: clamp(Math.round((summary.measureCount + summary.relationshipCount) / 2 + 20)), color: '#2ab7ff' },
       { label: 'Technical Debt', value: clamp(100 - scores.modeling + 10), color: '#ffcc66' },
       { label: 'Quality', value: scores.overall, color: '#38d39f' },
-    ];
+    ] : [];
+    const scoreMarkup = scores.overall === null
+      ? `
+        <div class="panel-card">
+          <div class="panel-title">Semantic model scores unavailable</div>
+          <p>PBIX report pages and visuals are available for review. Overall quality, DAX, governance and performance scores require the PBIP/TMDL semantic model.</p>
+          <div><strong>Report UX score:</strong> ${scores.ux}/100</div>
+        </div>
+      `
+      : `
+        <div class="gauge-grid">
+          ${gaugeEntries.map((entry) => `
+            <div class="score-card">
+              <div class="score-meta">
+                <div class="score-title">${entry.label}</div>
+                <div class="score-value">${entry.value}</div>
+              </div>
+              <div class="chart-wrap" style="height: 160px;">
+                <canvas id="gauge-${entry.label.toLowerCase().replace(/\s+/g, '-')}"></canvas>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        <div class="panel-card">
+          <div class="panel-title">Assessment highlights</div>
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Area</th>
+                  <th>Score</th>
+                  <th>Priority</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>Modelling</td><td>${scores.modeling}</td><td><span class="badge success">Strong</span></td></tr>
+                <tr><td>DAX</td><td>${scores.dax}</td><td><span class="badge warning">Monitor</span></td></tr>
+                <tr><td>Governance</td><td>${scores.governance}</td><td><span class="badge warning">Action</span></td></tr>
+                <tr><td>Performance</td><td>${scores.performance}</td><td><span class="badge">Stable</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
 
     container.innerHTML = `
+      ${project.metadata.analysisNotes?.map((note) => `<div class="alert alert-warning">${note}</div>`).join('') || ''}
       <div class="kpi-grid">
         ${cards.map((card) => `
           <div class="kpi-card">
@@ -103,43 +158,10 @@
         `).join('')}
       </div>
 
-      <div class="gauge-grid">
-        ${gaugeEntries.map((entry) => `
-          <div class="score-card">
-            <div class="score-meta">
-              <div class="score-title">${entry.label}</div>
-              <div class="score-value">${entry.value}</div>
-            </div>
-            <div class="chart-wrap" style="height: 160px;">
-              <canvas id="gauge-${entry.label.toLowerCase().replace(/\s+/g, '-')}"></canvas>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-
-      <div class="panel-card">
-        <div class="panel-title">Assessment highlights</div>
-        <div class="table-responsive">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Area</th>
-                <th>Score</th>
-                <th>Priority</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>Modelling</td><td>${scores.modeling}</td><td><span class="badge success">Strong</span></td></tr>
-              <tr><td>DAX</td><td>${scores.dax}</td><td><span class="badge warning">Monitor</span></td></tr>
-              <tr><td>Governance</td><td>${scores.governance}</td><td><span class="badge warning">Action</span></td></tr>
-              <tr><td>Performance</td><td>${scores.performance}</td><td><span class="badge">Stable</span></td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+      ${scoreMarkup}
     `;
 
-    setTimeout(() => {
+    if (scores.overall !== null) setTimeout(() => {
       gaugeEntries.forEach((entry) => {
         renderGaugeChart(`gauge-${entry.label.toLowerCase().replace(/\s+/g, '-')}`, entry.value, entry.color);
       });
@@ -150,6 +172,10 @@
     const container = document.getElementById('semantic-content');
     if (!project || !project.analysis) {
       container.innerHTML = '<div class="empty-state">Semantic model not available yet.</div>';
+      return;
+    }
+    if (project.metadata.semanticModelAvailable === false) {
+      container.innerHTML = '<div class="empty-state">PBIX semantic model metadata is not decoded in this version. Load the PBIP/TMDL source to inspect tables and columns.</div>';
       return;
     }
 
@@ -198,13 +224,19 @@
     const pages = project.analysis.report.pages;
     const html = pages.map((page) => `
       <div class="report-card panel-card">
-        <div class="panel-title">${page.displayName || page.name}</div>
+        <div class="panel-title">${escapeHtml(page.displayName || page.name)}</div>
         <div class="d-flex gap-3 flex-wrap mb-2">
           <span class="badge">${page.visualCount || 0} visuals</span>
           <span class="badge">${(page.visuals || []).length || 0} inventory items</span>
         </div>
         <ul class="bullet-list">
-          ${(page.visuals || []).map((visual) => `<li>${visual.name || 'Unnamed Visual'} (${visual.type || 'Unknown'})</li>`).join('') || '<li>No visuals detected</li>'}
+          ${(page.visuals || []).map((visual) => `
+            <li>
+              ${escapeHtml(visual.name || 'Unnamed Visual')} (${escapeHtml(visual.type || 'Unknown')})
+              ${visual.tables?.length ? `<div class="small text-muted">Tables: ${visual.tables.map(escapeHtml).join(', ')}</div>` : ''}
+              ${visual.fields?.length ? `<div class="small text-muted">Fields: ${visual.fields.map(escapeHtml).join(', ')}</div>` : ''}
+            </li>
+          `).join('') || '<li>No visuals detected</li>'}
         </ul>
       </div>
     `).join('');
@@ -216,6 +248,10 @@
     const container = document.getElementById('measures-content');
     if (!project || !project.analysis) {
       container.innerHTML = '<div class="empty-state">No measures available.</div>';
+      return;
+    }
+    if (project.metadata.semanticModelAvailable === false) {
+      container.innerHTML = '<div class="empty-state">PBIX measure definitions are not decoded in this version. Load the PBIP/TMDL source for DAX analysis.</div>';
       return;
     }
 
@@ -255,6 +291,10 @@
     const container = document.getElementById('relationships-content');
     if (!project || !project.analysis) {
       container.innerHTML = '<div class="empty-state">No relationship metadata found.</div>';
+      return;
+    }
+    if (project.metadata.semanticModelAvailable === false) {
+      container.innerHTML = '<div class="empty-state">PBIX relationships are not decoded in this version. Load the PBIP/TMDL source to review model relationships.</div>';
       return;
     }
 
@@ -316,6 +356,10 @@
     const container = document.getElementById('dependencies-content');
     if (!project || !project.analysis) {
       container.innerHTML = '<div class="empty-state">Dependency map unavailable.</div>';
+      return;
+    }
+    if (project.metadata.semanticModelAvailable === false) {
+      container.innerHTML = '<div class="empty-state">PBIX model dependencies are not decoded in this version. Report-level field references are listed with each visual.</div>';
       return;
     }
 
@@ -381,12 +425,13 @@
     ];
 
     container.innerHTML = `
+      ${scores.overall === null ? '<div class="alert alert-warning">PBIX files provide report-level analysis only in this version. Load the PBIP/TMDL source for full semantic model scores.</div>' : ''}
       <div class="kpi-grid">
         ${categories.map((category) => `
           <div class="kpi-card">
             <div class="kpi-label">${category.label}</div>
-            <div class="kpi-value">${category.value}</div>
-            <div class="progress-box"><span style="width:${category.value}%"></span></div>
+            <div class="kpi-value">${category.value ?? 'Not available'}</div>
+            ${category.value === null ? '' : `<div class="progress-box"><span style="width:${category.value}%"></span></div>`}
           </div>
         `).join('')}
       </div>
@@ -454,7 +499,7 @@
           <button class="btn btn-primary" data-export="csv">CSV inventory</button>
         </div>
         <div class="mt-3">
-          <strong>Quality Summary:</strong> ${summary.overall}/100 overall score
+          <strong>Quality Summary:</strong> ${summary.overall === null ? 'Not available for PBIX report-only analysis' : `${summary.overall}/100 overall score`}
         </div>
       </div>
     `;
@@ -480,11 +525,11 @@
         <div class="row g-3">
           <div class="col-md-6">
             <label class="form-label">Version A</label>
-            <input id="compare-a" type="file" class="form-control" accept=".zip,application/zip" />
+            <input id="compare-a" type="file" class="form-control" />
           </div>
           <div class="col-md-6">
             <label class="form-label">Version B</label>
-            <input id="compare-b" type="file" class="form-control" accept=".zip,application/zip" />
+            <input id="compare-b" type="file" class="form-control" />
           </div>
         </div>
         <div class="button-row">
@@ -498,14 +543,14 @@
       const aFile = document.getElementById('compare-a').files[0];
       const bFile = document.getElementById('compare-b').files[0];
       if (!aFile || !bFile) {
-        alert('Please select two PBIP zip files to compare.');
+        alert('Please select two PBIP ZIP or PBIX files to compare.');
         return;
       }
 
       setLoading(true, 'Comparing versions...');
       try {
-        const aProject = await studio.parser.parseProjectFromZip(aFile, aFile.name);
-        const bProject = await studio.parser.parseProjectFromZip(bFile, bFile.name);
+        const aProject = processProject(await studio.parser.parseProjectFromZip(aFile, aFile.name));
+        const bProject = processProject(await studio.parser.parseProjectFromZip(bFile, bFile.name));
         const result = compareProjects(aProject, bProject);
         const output = document.getElementById('compare-results');
         output.innerHTML = `
@@ -515,9 +560,9 @@
               <table class="table">
                 <thead><tr><th>Category</th><th>Version A</th><th>Version B</th><th>Delta</th></tr></thead>
                 <tbody>
-                  <tr><td>Quality</td><td>${result.scores.a}</td><td>${result.scores.b}</td><td>${result.scores.delta}</td></tr>
-                  <tr><td>Measures</td><td>${result.measures.a}</td><td>${result.measures.b}</td><td>${result.measures.delta}</td></tr>
-                  <tr><td>Relationships</td><td>${result.relationships.a}</td><td>${result.relationships.b}</td><td>${result.relationships.delta}</td></tr>
+                  <tr><td>Quality</td><td>${result.scores.a ?? 'Not available'}</td><td>${result.scores.b ?? 'Not available'}</td><td>${result.scores.delta ?? 'Not available'}</td></tr>
+                  <tr><td>Measures</td><td>${result.measures.a ?? 'Not available'}</td><td>${result.measures.b ?? 'Not available'}</td><td>${result.measures.delta ?? 'Not available'}</td></tr>
+                  <tr><td>Relationships</td><td>${result.relationships.a ?? 'Not available'}</td><td>${result.relationships.b ?? 'Not available'}</td><td>${result.relationships.delta ?? 'Not available'}</td></tr>
                 </tbody>
               </table>
             </div>
@@ -525,17 +570,17 @@
           <div class="panel-card">
             <div class="panel-title">Differential findings</div>
             <ul class="bullet-list">
-              <li><strong>Added measures:</strong> ${result.addedMeasures.length ? result.addedMeasures.join(', ') : 'None'}</li>
-              <li><strong>Changed measures:</strong> ${result.changedMeasures.length ? result.changedMeasures.join(', ') : 'None'}</li>
-              <li><strong>Deleted measures:</strong> ${result.deletedMeasures.length ? result.deletedMeasures.join(', ') : 'None'}</li>
-              <li><strong>Relationship changes:</strong> ${result.relationshipChanges.length ? result.relationshipChanges.join(', ') : 'None'}</li>
+              <li><strong>Added measures:</strong> ${result.addedMeasures ? (result.addedMeasures.length ? result.addedMeasures.join(', ') : 'None') : 'Not available for PBIX'}</li>
+              <li><strong>Changed measures:</strong> ${result.changedMeasures ? (result.changedMeasures.length ? result.changedMeasures.join(', ') : 'None') : 'Not available for PBIX'}</li>
+              <li><strong>Deleted measures:</strong> ${result.deletedMeasures ? (result.deletedMeasures.length ? result.deletedMeasures.join(', ') : 'None') : 'Not available for PBIX'}</li>
+              <li><strong>Relationship changes:</strong> ${result.relationshipChanges ? (result.relationshipChanges.length ? result.relationshipChanges.join(', ') : 'None') : 'Not available for PBIX'}</li>
               <li><strong>Visual changes:</strong> ${result.visualChanges.length ? result.visualChanges.join(', ') : 'None'}</li>
             </ul>
           </div>
         `;
       } catch (error) {
         console.error(error);
-        alert('The comparison could not be completed. Please verify the uploaded files are valid PBIP zip packages.');
+        alert(`The comparison could not be completed: ${error.message}`);
       } finally {
         setLoading(false);
       }
@@ -566,27 +611,29 @@
 
     const scoresA = computeProjectScore(aProject);
     const scoresB = computeProjectScore(bProject);
+    const hasSemanticModel = aProject.metadata?.semanticModelAvailable !== false
+      && bProject.metadata?.semanticModelAvailable !== false;
 
     return {
       scores: {
         a: scoresA,
         b: scoresB,
-        delta: scoresB - scoresA,
+        delta: scoresA === null || scoresB === null ? null : scoresB - scoresA,
       },
       measures: {
-        a: analyzeA.measures.length,
-        b: analyzeB.measures.length,
-        delta: analyzeB.measures.length - analyzeA.measures.length,
+        a: hasSemanticModel ? analyzeA.measures.length : null,
+        b: hasSemanticModel ? analyzeB.measures.length : null,
+        delta: hasSemanticModel ? analyzeB.measures.length - analyzeA.measures.length : null,
       },
       relationships: {
-        a: aRelationships.length,
-        b: bRelationships.length,
-        delta: bRelationships.length - aRelationships.length,
+        a: hasSemanticModel ? aRelationships.length : null,
+        b: hasSemanticModel ? bRelationships.length : null,
+        delta: hasSemanticModel ? bRelationships.length - aRelationships.length : null,
       },
-      addedMeasures,
-      changedMeasures,
-      deletedMeasures,
-      relationshipChanges,
+      addedMeasures: hasSemanticModel ? addedMeasures : null,
+      changedMeasures: hasSemanticModel ? changedMeasures : null,
+      deletedMeasures: hasSemanticModel ? deletedMeasures : null,
+      relationshipChanges: hasSemanticModel ? relationshipChanges : null,
       visualChanges,
     };
   }
@@ -601,11 +648,7 @@
   }
 
   function computeProjectScore(projectData) {
-    if (!projectData?.analysis) {
-      return 75;
-    }
-    const overall = projectData.analysis.assessment?.scores?.overall ?? 75;
-    return overall;
+    return projectData?.analysis?.assessment?.scores?.overall ?? null;
   }
 
   function processProject(projectData) {
@@ -630,7 +673,9 @@
   }
 
   async function loadProjectFromFiles(fileList) {
-    const selectedFile = Array.from(fileList || []).find((file) => /\.zip$/i.test(file.name));
+    const files = Array.from(fileList || []);
+    const isFolderSelection = files.some((file) => file.webkitRelativePath);
+    const selectedFile = isFolderSelection ? null : files.find((file) => /\.(zip|pbix)$/i.test(file.name));
     if (selectedFile) {
       const projectData = await studio.parser.parseProjectFromZip(selectedFile, selectedFile.name);
       state.project = processProject(projectData);
@@ -638,9 +683,9 @@
       return;
     }
 
-    if (fileList && fileList.length) {
+    if (files.length && isFolderSelection) {
       const zip = new JSZip();
-      Array.from(fileList).forEach((file) => {
+      files.forEach((file) => {
         const relativePath = file.webkitRelativePath || file.name;
         zip.file(relativePath, file);
       });
@@ -648,7 +693,10 @@
       const projectData = await studio.parser.parseProjectFromZip(generated, 'uploaded-project.zip');
       state.project = processProject(projectData);
       renderAll();
+      return;
     }
+
+    throw new Error('Choose a PBIX file, a PBIP ZIP archive, or a PBIP project folder.');
   }
 
   function renderAll() {
@@ -659,7 +707,8 @@
     }
 
     setProjectTitle(state.project.projectName);
-    setProjectStatus('Project ready', 'success');
+    const isPbix = state.project.metadata.format === 'PBIX';
+    setProjectStatus(isPbix ? 'PBIX · report-only' : 'Project ready', isPbix ? 'warning' : 'success');
     renderOverview(state.project);
     renderSemantic(state.project);
     renderReport(state.project);
@@ -694,8 +743,13 @@
       setLoading(true, 'Processing upload...');
       try {
         await loadProjectFromFiles(target.files);
+      } catch (error) {
+        console.error(error);
+        setProjectStatus('Upload failed', 'warning');
+        alert(error.message);
       } finally {
         setLoading(false);
+        target.value = '';
       }
     });
 
@@ -705,6 +759,10 @@
       setLoading(true, 'Loading PBIP folder...');
       try {
         await loadProjectFromFiles(target.files);
+      } catch (error) {
+        console.error(error);
+        setProjectStatus('Upload failed', 'warning');
+        alert(error.message);
       } finally {
         setLoading(false);
       }

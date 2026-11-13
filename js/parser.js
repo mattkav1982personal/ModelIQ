@@ -175,6 +175,71 @@
     return String(name).replace(/^['"]|['"]$/g, '').trim();
   }
 
+  function decodeText(bytes) {
+    const hasUtf16LeBom = bytes.length > 1 && bytes[0] === 0xff && bytes[1] === 0xfe;
+    const looksLikeUtf16Le = bytes.length > 1 && bytes[1] === 0;
+    const content = hasUtf16LeBom ? bytes.subarray(2) : bytes;
+    return new TextDecoder(hasUtf16LeBom || looksLikeUtf16Le ? 'utf-16le' : 'utf-8').decode(content);
+  }
+
+  function getVisualTitle(objects) {
+    const titleItems = objects && objects.title;
+    if (!Array.isArray(titleItems)) return '';
+
+    for (const item of titleItems) {
+      const value = item?.properties?.text?.expr?.Literal?.Value;
+      if (typeof value === 'string') {
+        return value.replace(/^['"]|['"]$/g, '').trim();
+      }
+    }
+
+    return '';
+  }
+
+  function parsePbixLayout(content, sourcePath) {
+    const layout = safeJsonParse(content);
+    if (!layout || !Array.isArray(layout.sections)) return null;
+
+    const pages = layout.sections.map((section, pageIndex) => {
+      const visualContainers = Array.isArray(section.visualContainers) ? section.visualContainers : [];
+      const visuals = visualContainers.map((container, visualIndex) => {
+        const config = safeJsonParse(container.config || '') || {};
+        const singleVisual = config.singleVisual || {};
+        const prototypeQuery = singleVisual.prototypeQuery || {};
+        const tableReferences = (Array.isArray(prototypeQuery.From) ? prototypeQuery.From : [])
+          .map((source) => source.Entity)
+          .filter((entity) => typeof entity === 'string' && entity.length > 0);
+        const fieldReferences = Object.values(singleVisual.projections || {})
+          .flat()
+          .filter((projection) => projection && typeof projection === 'object')
+          .map((projection) => projection.queryRef)
+          .filter((queryRef) => typeof queryRef === 'string' && queryRef.length > 0);
+        const type = singleVisual.visualType || 'Unknown';
+
+        return {
+          name: getVisualTitle(singleVisual.objects) || `${type} ${visualIndex + 1}`,
+          type,
+          tables: [...new Set(tableReferences)],
+          fields: [...new Set(fieldReferences)],
+          sourcePath,
+        };
+      });
+
+      const name = section.name || `Page ${pageIndex + 1}`;
+      return {
+        name,
+        displayName: section.displayName || name,
+        visualCount: visualContainers.length,
+        visuals,
+      };
+    });
+
+    return {
+      pages,
+      visuals: pages.flatMap((page) => page.visuals),
+    };
+  }
+
   function parseJsonLike(source, path) {
     const data = typeof source === 'string' ? safeJsonParse(source) : source;
     if (!data || typeof data !== 'object') return null;
@@ -234,17 +299,33 @@
   }
 
   parser.parseProjectFromZip = async function parseProjectFromZip(zipFile, fileName) {
-    const zip = await JSZip.loadAsync(zipFile);
+    const isPbix = /\.pbix$/i.test(fileName || '');
+    let zip;
+    try {
+      zip = await JSZip.loadAsync(zipFile);
+    } catch (error) {
+      throw new Error(`Could not open "${fileName || 'the selected file'}" as a Power BI ZIP package.`);
+    }
+
     const entries = Object.keys(zip.files)
       .filter((key) => !zip.files[key].dir)
       .sort();
+    const hasPbixLayout = entries.some((entry) => entry.toLowerCase() === 'report/layout');
+    if (isPbix && !hasPbixLayout) {
+      throw new Error('This PBIX does not contain a readable Report/Layout entry. It may be encrypted or use an unsupported format.');
+    }
 
     const projectData = {
-      projectName: (fileName || 'pbip-project').replace(/\.zip$/i, '').replace(/[-_]/g, ' '),
+      projectName: (fileName || 'pbip-project').replace(/\.(zip|pbix)$/i, '').replace(/[-_]/g, ' '),
       sourceName: fileName || 'pbip-project.zip',
       files: entries,
       metadata: {
         lastModified: new Date().toISOString(),
+        format: isPbix ? 'PBIX' : 'PBIP',
+        semanticModelAvailable: !isPbix,
+        analysisNotes: isPbix
+          ? ['PBIX report pages and visual inventory are analyzed. PBIX semantic model metadata is stored in a binary payload and is not decoded by this browser-only version.']
+          : [],
       },
       model: {
         tables: [],
@@ -267,6 +348,27 @@
     for (const filePath of entries) {
       const file = zip.files[filePath];
       const lower = filePath.toLowerCase();
+
+      if (isPbix && lower === 'report/layout') {
+        const bytes = await file.async('uint8array');
+        const parsedReport = parsePbixLayout(decodeText(bytes), filePath);
+        if (!parsedReport) throw new Error('The PBIX report layout could not be parsed.');
+        projectData.raw.reportJson = parsedReport;
+        projectData.report.pages = parsedReport.pages;
+        projectData.report.visuals = parsedReport.visuals;
+        continue;
+      }
+
+      if (isPbix) continue;
+
+      const isRelevantTextFile = lower.endsWith('.pbiproject')
+        || lower.endsWith('report.json')
+        || lower.endsWith('definition.pbir')
+        || lower.endsWith('.bim')
+        || lower.endsWith('.tmdl')
+        || (lower.endsWith('.json') && /report|metadata|database|model/i.test(filePath));
+      if (!isRelevantTextFile) continue;
+
       const content = await file.async('string');
 
       if (lower.endsWith('.pbiproject')) {
@@ -320,33 +422,6 @@
       }
     }
 
-    if (!projectData.model.tables.length) {
-      projectData.model.tables.push({
-        name: 'Sales',
-        description: 'Sample fact table generated for analysis demo',
-        dataSource: 'Sample data source',
-        storageMode: 'Mixed',
-        columns: [
-          { name: 'Sales Amount', dataType: 'Decimal', formatString: '$#,##0.00', hidden: false, isKey: false, sortBy: '' },
-          { name: 'Order Date', dataType: 'DateTime', formatString: 'MM/dd/yyyy', hidden: false, isKey: false, sortBy: '' },
-        ],
-      });
-    }
-
-    if (!projectData.model.measures.length) {
-      projectData.model.measures.push(
-        { name: 'Total Sales', table: projectData.model.tables[0]?.name || 'Sales', expression: 'SUM(Sales[Sales Amount])', description: 'Sample generated measure', sourcePath: 'sample' },
-        { name: 'Sales YTD', table: projectData.model.tables[0]?.name || 'Sales', expression: 'TOTALYTD([Total Sales], Date[Date])', description: 'Sample generated YTD measure', sourcePath: 'sample' }
-      );
-    }
-
-    if (!projectData.report.pages.length) {
-      projectData.report.pages.push(
-        { name: 'Overview', displayName: 'Overview', visualCount: 4, visuals: [{ type: 'Card', name: 'Revenue' }, { type: 'BarChart', name: 'Sales Trend' }, { type: 'Table', name: 'Top Products' }] },
-        { name: 'Product Detail', displayName: 'Product Detail', visualCount: 3, visuals: [{ type: 'Matrix', name: 'Product performance' }, { type: 'Gauge', name: 'Target attainment' }] }
-      );
-    }
-
     projectData.model.tables = projectData.model.tables.map((table, index) => ({
       ...table,
       id: index + 1,
@@ -362,9 +437,7 @@
       table: measure.table || projectData.model.tables[0]?.name || 'Unknown Table',
     }));
 
-    projectData.model.relationships = (projectData.model.relationships.length ? projectData.model.relationships : [
-      { from: projectData.model.tables[0]?.name || 'Sales', to: 'Date', cardinality: 'Many-to-one', active: true, crossFilter: 'Single' }
-    ]).map((relationship, index) => ({
+    projectData.model.relationships = projectData.model.relationships.map((relationship, index) => ({
       ...relationship,
       id: index + 1,
     }));
@@ -442,7 +515,7 @@
       solution: {
         name: projectData.projectName,
         dataSources: analysis?.model?.dataSources || projectData.model.dataSources || [],
-        qualityScore: analysis?.scores?.overall || 0,
+        qualityScore: analysis?.scores?.overall ?? null,
       },
       tables: (analysis?.model?.tables || projectData.model.tables || []).map((table) => ({
         name: table.name,

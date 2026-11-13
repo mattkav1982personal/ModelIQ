@@ -12,6 +12,7 @@
     const relationships = semanticModel?.relationships || [];
     const reportPages = reportAnalysis?.pages || [];
     const daxResults = daxAnalysis?.results || [];
+    const semanticModelAvailable = projectData?.metadata?.semanticModelAvailable !== false;
 
     const modelingScore = clamp(100 - (relationships.filter((relationship) => relationship.cardinality?.toLowerCase().includes('many')).length * 5) - (tables.filter((table) => (table.columns || []).length > 20).length * 6));
     const daxScore = clamp(daxAnalysis?.averageScore || 80);
@@ -31,29 +32,35 @@
       )
     );
 
-    const risks = [
+    const risks = semanticModelAvailable ? [
       'Review relationship cardinality and filter direction to avoid ambiguous model behaviour.',
       'Audit measures with high complexity and repeated filter logic.',
       'Improve documentation coverage for tables and measures with missing descriptions.',
       'Validate report page density and accessibility for consistent UX delivery.',
+    ] : [
+      'PBIX semantic model metadata is unavailable; load the PBIP/TMDL source for model, DAX, governance and performance assessment.',
+      'Validate report page density and accessibility for consistent UX delivery.',
     ];
 
-    const recommendations = [
+    const recommendations = semanticModelAvailable ? [
       'Document missing table and measure descriptions to strengthen governance.',
       'Simplify complex DAX patterns and centralize reusable calculations.',
       'Reduce relationship complexity and review cross-filter direction.',
       'Improve page-level usability and accessibility checks before sign-off.',
+    ] : [
+      'Use the PBIP project or TMDL files for semantic model, DAX, relationship and governance assessment.',
+      'Review the detected report pages and visual inventory for layout and accessibility improvements.',
     ];
 
     return {
       scores: {
-        overall,
-        modeling: modelingScore,
-        dax: daxScore,
-        governance: governanceScore,
+        overall: semanticModelAvailable ? overall : null,
+        modeling: semanticModelAvailable ? modelingScore : null,
+        dax: semanticModelAvailable ? daxScore : null,
+        governance: semanticModelAvailable ? governanceScore : null,
         ux: uxScore,
-        performance: performanceScore,
-        documentation: documentationScore,
+        performance: semanticModelAvailable ? performanceScore : null,
+        documentation: semanticModelAvailable ? documentationScore : null,
       },
       risks,
       recommendations,

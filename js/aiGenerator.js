@@ -7,12 +7,16 @@
     const tables = model.tables || [];
     const measures = model.measures || [];
     const risks = analysis?.risks || [];
+    const semanticModelAvailable = projectData.metadata?.semanticModelAvailable !== false;
 
     const contextText = [
       `Project: ${projectData.projectName}`,
+      `Input format: ${projectData.metadata?.format || 'PBIP'}`,
       '',
       'Business glossary:',
-      `- This solution contains ${tables.length} tables and ${measures.length} measures.`,
+      semanticModelAvailable
+        ? `- This solution contains ${tables.length} tables and ${measures.length} measures.`
+        : '- Semantic model tables and measures are not available in this PBIX report-only analysis.',
       `- Primary modeling themes include ${tables.slice(0, 3).map((table) => table.name).join(', ')}.`,
       '',
       'Key calculations:',
@@ -30,7 +34,9 @@
     const knowledgeJson = {
       solution: {
         name: projectData.projectName,
-        qualityScore: analysis?.scores?.overall || 0,
+        format: projectData.metadata?.format || 'PBIP',
+        semanticModelAvailable,
+        qualityScore: analysis?.scores?.overall ?? null,
       },
       tables: tables.map((table) => ({
         name: table.name,
