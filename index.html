@@ -18,10 +18,16 @@
         </div>
 
         <div class="sidebar-section">
-          <label class="upload-label">Project upload</label>
-          <input id="project-upload" type="file" class="form-control form-control-sm mb-2" />
-          <div class="small text-muted mb-2">PBIP ZIP or folder; PBIX report pages and visuals.</div>
-          <input id="project-folder-upload" type="file" webkitdirectory directory multiple class="form-control form-control-sm mb-2" />
+          <label for="project-upload" class="upload-label">PBIX file or PBIP ZIP</label>
+          <input id="project-upload" type="file" class="visually-hidden" />
+          <label for="project-upload" class="btn btn-outline-light btn-sm w-100 mb-1">Select file</label>
+          <div id="project-file-status" class="upload-help mb-3">No file selected</div>
+
+          <label for="project-folder-upload" class="upload-label">PBIP project folder</label>
+          <input id="project-folder-upload" type="file" webkitdirectory directory multiple class="visually-hidden" />
+          <label for="project-folder-upload" class="btn btn-outline-light btn-sm w-100 mb-1">Select PBIP folder</label>
+          <div id="project-folder-status" class="upload-help mb-2">Choose the project root containing the .pbip file and its report/model folders.</div>
+          <div class="upload-help mb-2">PBIX support currently inspects report pages and visuals only.</div>
           <button id="sample-project-btn" class="btn btn-primary btn-sm w-100">Load sample project</button>
         </div>
 

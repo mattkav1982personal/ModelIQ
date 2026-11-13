@@ -80,11 +80,18 @@ button, input, select {
 
 .upload-label {
   display: block;
-  color: var(--muted);
+  color: #a9bfd5;
   font-size: 0.72rem;
   margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.upload-help {
+  color: #b7c8d9;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .nav-pills {

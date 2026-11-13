@@ -362,6 +362,7 @@
       if (isPbix) continue;
 
       const isRelevantTextFile = lower.endsWith('.pbiproject')
+        || lower.endsWith('.pbip')
         || lower.endsWith('report.json')
         || lower.endsWith('definition.pbir')
         || lower.endsWith('.bim')
@@ -371,7 +372,7 @@
 
       const content = await file.async('string');
 
-      if (lower.endsWith('.pbiproject')) {
+      if (lower.endsWith('.pbiproject') || lower.endsWith('.pbip')) {
         const json = safeJsonParse(content);
         projectData.raw.project = json;
         projectData.metadata = {

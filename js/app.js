@@ -583,6 +583,7 @@
         alert(`The comparison could not be completed: ${error.message}`);
       } finally {
         setLoading(false);
+        target.value = '';
       }
     });
   }
@@ -690,10 +691,16 @@
         zip.file(relativePath, file);
       });
       const generated = await zip.generateAsync({ type: 'blob' });
-      const projectData = await studio.parser.parseProjectFromZip(generated, 'uploaded-project.zip');
+      const firstFolderFile = files.find((file) => file.webkitRelativePath);
+      const rootFolder = firstFolderFile.webkitRelativePath.split('/')[0] || 'uploaded-project';
+      const projectData = await studio.parser.parseProjectFromZip(generated, `${rootFolder}.zip`);
       state.project = processProject(projectData);
       renderAll();
       return;
+    }
+
+    if (files.some((file) => /\.pbip$/i.test(file.name))) {
+      throw new Error('A .pbip file is the project manifest. Select its containing folder with “Select PBIP folder” so ModelIQ can read the related report and semantic model files.');
     }
 
     throw new Error('Choose a PBIX file, a PBIP ZIP archive, or a PBIP project folder.');
@@ -740,6 +747,7 @@
     document.getElementById('project-upload').addEventListener('change', async (event) => {
       const target = event.target;
       if (!target.files || !target.files.length) return;
+      document.getElementById('project-file-status').textContent = target.files[0].name;
       setLoading(true, 'Processing upload...');
       try {
         await loadProjectFromFiles(target.files);
@@ -756,6 +764,10 @@
     document.getElementById('project-folder-upload').addEventListener('change', async (event) => {
       const target = event.target;
       if (!target.files || !target.files.length) return;
+      const folderFile = Array.from(target.files).find((file) => file.webkitRelativePath) || target.files[0];
+      const firstPath = folderFile.webkitRelativePath || folderFile.name;
+      const rootFolder = firstPath.split('/')[0];
+      document.getElementById('project-folder-status').textContent = `Selected: ${rootFolder} (${target.files.length} files)`;
       setLoading(true, 'Loading PBIP folder...');
       try {
         await loadProjectFromFiles(target.files);
@@ -765,6 +777,7 @@
         alert(error.message);
       } finally {
         setLoading(false);
+        target.value = '';
       }
     });
 
