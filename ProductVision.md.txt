@@ -1,0 +1,365 @@
+ProductVision.md
+ModelIQ
+Mission
+ModelIQ is a Power BI architecture review, documentation, governance and technical debt assessment platform.
+
+Its purpose is to become the industry-standard quality assurance platform for Power BI and Microsoft Fabric semantic models.
+
+ModelIQ helps developers, consultants, architects and enterprise analytics teams understand, document, improve and certify their Power BI solutions.
+
+The long-term vision is to become the "SonarQube for Power BI".
+
+Vision Statement
+Transform Power BI solution assessment from a manual consulting exercise into an automated, repeatable and trusted certification process.
+
+A user uploads a PBIP project and receives:
+
+Architectural assessment
+Technical debt assessment
+Governance review
+Documentation suite
+AI-ready knowledge packs
+Quality certification
+Core Principles
+1. Local First
+Wherever possible:
+
+Analysis runs locally
+Metadata remains on the user's machine
+No business data leaves the environment
+ModelIQ analyses metadata and architecture, not business records.
+
+2. PBIP First
+Primary focus:
+
+PBIP
+TMDL
+Semantic Models
+Not PBIX.
+
+All features should be designed around the future Microsoft direction of PBIP and TMDL.
+
+3. Consultant Quality Outputs
+Every output should feel like it was produced by a senior Power BI consultant.
+
+Outputs should never be simple metadata dumps.
+
+Every report should include:
+
+Findings
+Risks
+Recommendations
+Prioritisation
+4. Developer Productivity
+Every feature must support one or more of:
+
+Development
+Documentation
+Governance
+Optimisation
+Support
+Handover
+AI enablement
+Product Positioning
+ModelIQ is NOT:
+
+A documentation tool
+A metadata browser
+A DAX utility
+ModelIQ IS:
+
+An architecture review platform
+A governance platform
+A Power BI quality assessment platform
+A semantic model certification platform
+Product Pillars
+Architecture
+Assess:
+
+Data modelling
+Relationships
+Star schema compliance
+Semantic layer quality
+Governance
+Assess:
+
+Naming standards
+Documentation standards
+Model maintainability
+Ownership
+Performance
+Assess:
+
+Cardinality
+DAX quality
+Storage efficiency
+Optimisation opportunities
+UX
+Assess:
+
+Accessibility
+Visual design
+Layout consistency
+Dashboard best practices
+AI Enablement
+Generate:
+
+Copilot Context Files
+Knowledge Packs
+Business Glossaries
+AI-ready Metadata
+Core Inputs
+Supported Inputs
+PBIP Projects
+Semantic Models
+TMDL Files
+Report Definitions
+Themes
+Bookmarks
+Report Pages
+Core Outputs
+Documentation
+Executive Infographic PDF
+Technical Documentation PDF
+Support Handover Pack
+Data Dictionary
+Measure Catalogues
+Analysis
+Semantic Model Review
+DAX Review
+Governance Assessment
+Performance Assessment
+UX Assessment
+Technical Debt Review
+AI Outputs
+Copilot Context TXT
+AI Knowledge Pack JSON
+Prompt Starter Pack
+Semantic Knowledge Graph
+Quality Framework
+Assessment Categories
+Model Quality
+Measures:
+
+Relationship quality
+Star schema compliance
+Table design
+Data types
+DAX Quality
+Measures:
+
+Complexity
+Maintainability
+Optimisation opportunities
+Governance Quality
+Measures:
+
+Documentation coverage
+Naming consistency
+Ownership standards
+UX Quality
+Measures:
+
+Accessibility
+Visual hierarchy
+Consistency
+Performance Quality
+Measures:
+
+Cardinality
+Calculated columns
+Model size indicators
+Certification Framework
+Bronze
+Acceptable implementation.
+
+Minimal technical debt.
+
+Silver
+Good implementation.
+
+Complies with common best practices.
+
+Gold
+High-quality architecture.
+
+Low technical debt.
+
+Well documented.
+
+Platinum
+Enterprise-grade implementation.
+
+Governance standards achieved.
+
+Optimised semantic model.
+
+Diamond
+Industry-leading implementation.
+
+Exemplary architecture, governance and maintainability.
+
+Product Roadmap
+Phase 0 - MVP
+Deliver:
+
+PBIP upload
+Semantic model parser
+Tables
+Measures
+Relationships
+Basic documentation
+Success Metric:
+
+Working GitHub Pages application
+Phase 1 - Validation
+Deliver:
+
+Quality score
+Relationship diagrams
+Dependency mapping
+Success Metric:
+
+Active external users
+Phase 2 - Developer Edition
+Deliver:
+
+DAX review
+Governance review
+Technical debt assessment
+Performance analysis
+Success Metric:
+
+Returning users
+Phase 3 - AI Edition
+Deliver:
+
+Copilot Context Files
+Knowledge Packs
+AI prompt generation
+Success Metric:
+
+High export adoption
+Phase 4 - Premium Launch
+Deliver:
+
+Subscription model
+Premium exports
+Advanced assessments
+Success Metric:
+
+First paying customers
+Phase 5 - Consultant Toolkit
+Deliver:
+
+Version comparison
+Change analysis
+Handover packs
+Executive reporting
+Success Metric:
+
+Consultant adoption
+Phase 6 - Enterprise
+Deliver:
+
+Fabric integration
+Workspace analysis
+Multi-model assessment
+Success Metric:
+
+Enterprise customers
+Version Comparison Vision
+Users upload two PBIP projects.
+
+ModelIQ identifies:
+
+Added measures
+Deleted measures
+Modified measures
+Relationship changes
+Page changes
+Quality score changes
+Purpose:
+
+Enable release reviews and architectural impact analysis.
+
+Technical Debt Vision
+ModelIQ becomes known for its Technical Debt Assessment.
+
+Outputs:
+
+Overall Score
+Risk Areas
+Quick Wins
+Medium-Term Improvements
+Strategic Refactoring Opportunities
+This becomes the platform's primary differentiator.
+
+Commercial Strategy
+Free
+Provide:
+
+Upload
+Analysis
+Basic reports
+Goal:
+
+Adoption
+
+Pro
+Provide:
+
+Advanced analysis
+AI outputs
+Technical documentation
+Technical debt reports
+Goal:
+
+Recurring revenue
+
+Consultant
+Provide:
+
+Version comparison
+Handover packs
+Unlimited exports
+Goal:
+
+Professional services market
+
+Enterprise
+Provide:
+
+Workspace analysis
+Governance reporting
+Portfolio assessment
+Goal:
+
+Enterprise recurring revenue
+
+Decision-Making Framework
+When evaluating future features:
+
+Does it improve architecture quality?
+Does it reduce technical debt?
+Does it improve governance?
+Does it provide commercial differentiation?
+Does it support AI enablement?
+Is it aligned with Microsoft Fabric's direction?
+Could it become part of the certification framework?
+If the answer to most of these questions is no:
+
+Do not build the feature.
+
+Long-Term Vision
+ModelIQ becomes the recognised quality standard for Power BI and Microsoft Fabric solutions.
+
+Success is achieved when organisations actively seek:
+
+"ModelIQ Gold Certified"
+
+or
+
+"ModelIQ Platinum Certified"
+
+as evidence of a high-quality analytics solution.

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ModelIQ</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-wrap">
+          <img src="ModelIQ_Logo.png" alt="ModelIQ logo" class="brand-logo" />
+        </div>
+
+        <div class="sidebar-section">
+          <label class="upload-label">Project upload</label>
+          <input id="project-upload" type="file" accept=".zip,application/zip" class="form-control form-control-sm mb-2" />
+          <input id="project-folder-upload" type="file" webkitdirectory directory multiple class="form-control form-control-sm mb-2" />
+          <button id="sample-project-btn" class="btn btn-primary btn-sm w-100">Load sample project</button>
+        </div>
+
+        <nav class="nav flex-column nav-pills" id="main-nav">
+          <button class="nav-link active" data-target="overview-panel">Overview</button>
+          <button class="nav-link" data-target="semantic-panel">Semantic Model</button>
+          <button class="nav-link" data-target="report-panel">Report Pages</button>
+          <button class="nav-link" data-target="measures-panel">Measures</button>
+          <button class="nav-link" data-target="relationships-panel">Relationships</button>
+          <button class="nav-link" data-target="dependencies-panel">Dependencies</button>
+          <button class="nav-link" data-target="documentation-panel">Documentation</button>
+          <button class="nav-link" data-target="assessments-panel">Assessments</button>
+          <button class="nav-link" data-target="ai-panel">AI Outputs</button>
+          <button class="nav-link" data-target="export-panel">Export Centre</button>
+          <button class="nav-link" data-target="compare-panel">Compare Versions</button>
+        </nav>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div>
+            <div class="eyebrow">Project</div>
+            <h1 id="project-title">ModelIQ</h1>
+          </div>
+          <div id="project-status" class="status-badge muted">Waiting for upload</div>
+        </header>
+        <div class="app-version">v0.1</div>
+
+        <div class="tab-panels">
+          <section id="overview-panel" class="tab-panel active">
+            <div id="overview-content"></div>
+          </section>
+
+          <section id="semantic-panel" class="tab-panel">
+            <div id="semantic-content"></div>
+          </section>
+
+          <section id="report-panel" class="tab-panel">
+            <div id="report-content"></div>
+          </section>
+
+          <section id="measures-panel" class="tab-panel">
+            <div id="measures-content"></div>
+          </section>
+
+          <section id="relationships-panel" class="tab-panel">
+            <div id="relationships-content"></div>
+          </section>
+
+          <section id="dependencies-panel" class="tab-panel">
+            <div id="dependencies-content"></div>
+          </section>
+
+          <section id="documentation-panel" class="tab-panel">
+            <div id="documentation-content"></div>
+          </section>
+
+          <section id="assessments-panel" class="tab-panel">
+            <div id="assessments-content"></div>
+          </section>
+
+          <section id="ai-panel" class="tab-panel">
+            <div id="ai-content"></div>
+          </section>
+
+          <section id="export-panel" class="tab-panel">
+            <div id="export-content"></div>
+          </section>
+
+          <section id="compare-panel" class="tab-panel">
+            <div id="compare-content"></div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <div id="loading-overlay" class="loading-overlay hidden">
+      <div class="spinner"></div>
+      <div id="loading-text">Processing project...</div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.9/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.9/vfs_fonts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <script src="js/parser.js"></script>
+    <script src="js/semanticModel.js"></script>
+    <script src="js/reportAnalysis.js"></script>
+    <script src="js/daxAnalyzer.js"></script>
+    <script src="js/assessmentEngine.js"></script>
+    <script src="js/documentationGenerator.js"></script>
+    <script src="js/aiGenerator.js"></script>
+    <script src="js/exportEngine.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>
