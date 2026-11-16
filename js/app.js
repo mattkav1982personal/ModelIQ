@@ -111,7 +111,7 @@
       ? `
         <div class="panel-card">
           <div class="panel-title">Semantic model scores unavailable</div>
-          <p>PBIX report pages and visuals are available for review. Overall quality, DAX, governance and performance scores require the PBIP/TMDL semantic model.</p>
+          <p>PBIX report pages and visuals are available for review. Table, measure and relationship counts show as unavailable, not zero, because this browser version does not decode the embedded PBIX semantic model. Load the PBIP/TMDL source for full model assessment.</p>
           <div><strong>Report UX score:</strong> ${scores.ux}/100</div>
         </div>
       `
@@ -475,7 +475,7 @@
     ];
 
     container.innerHTML = `
-      ${scores.overall === null ? '<div class="alert alert-warning">PBIX files provide report-level analysis only in this version. Load the PBIP/TMDL source for full semantic model scores.</div>' : ''}
+      ${scores.overall === null ? '<div class="alert alert-warning">PBIX files provide report-level analysis only in this version. Model counts and scores are unavailable, not zero; load the PBIP/TMDL source for full semantic model assessment.</div>' : ''}
       <div class="kpi-grid">
         ${categories.map((category) => `
           <div class="kpi-card">
@@ -575,11 +575,11 @@
         <div class="row g-3">
           <div class="col-md-6">
             <label class="form-label">Version A</label>
-            <input id="compare-a" type="file" class="form-control" />
+            <input id="compare-a" type="file" accept=".zip" class="form-control" />
           </div>
           <div class="col-md-6">
             <label class="form-label">Version B</label>
-            <input id="compare-b" type="file" class="form-control" />
+            <input id="compare-b" type="file" accept=".zip" class="form-control" />
           </div>
         </div>
         <div class="button-row">
@@ -593,7 +593,11 @@
       const aFile = document.getElementById('compare-a').files[0];
       const bFile = document.getElementById('compare-b').files[0];
       if (!aFile || !bFile) {
-        alert('Please select two PBIP ZIP or PBIX files to compare.');
+        alert('Please select two PBIP ZIP archives to compare.');
+        return;
+      }
+      if (!/\.zip$/i.test(aFile.name) || !/\.zip$/i.test(bFile.name)) {
+        alert('Compare Versions accepts PBIP ZIP archives only.');
         return;
       }
 
@@ -601,6 +605,9 @@
       try {
         const aProject = processProject(await studio.parser.parseProjectFromZip(aFile, aFile.name));
         const bProject = processProject(await studio.parser.parseProjectFromZip(bFile, bFile.name));
+        if (aProject.metadata.format === 'PBIX' || bProject.metadata.format === 'PBIX') {
+          throw new Error('Only PBIP project ZIP archives can be compared.');
+        }
         const result = compareProjects(aProject, bProject);
         const output = document.getElementById('compare-results');
         output.innerHTML = `
@@ -620,10 +627,10 @@
           <div class="panel-card">
             <div class="panel-title">Differential findings</div>
             <ul class="bullet-list">
-              <li><strong>Added measures:</strong> ${result.addedMeasures ? (result.addedMeasures.length ? result.addedMeasures.join(', ') : 'None') : 'Not available for PBIX'}</li>
-              <li><strong>Changed measures:</strong> ${result.changedMeasures ? (result.changedMeasures.length ? result.changedMeasures.join(', ') : 'None') : 'Not available for PBIX'}</li>
-              <li><strong>Deleted measures:</strong> ${result.deletedMeasures ? (result.deletedMeasures.length ? result.deletedMeasures.join(', ') : 'None') : 'Not available for PBIX'}</li>
-              <li><strong>Relationship changes:</strong> ${result.relationshipChanges ? (result.relationshipChanges.length ? result.relationshipChanges.join(', ') : 'None') : 'Not available for PBIX'}</li>
+              <li><strong>Added measures:</strong> ${result.addedMeasures ? (result.addedMeasures.length ? result.addedMeasures.join(', ') : 'None') : 'Unavailable'}</li>
+              <li><strong>Changed measures:</strong> ${result.changedMeasures ? (result.changedMeasures.length ? result.changedMeasures.join(', ') : 'None') : 'Unavailable'}</li>
+              <li><strong>Deleted measures:</strong> ${result.deletedMeasures ? (result.deletedMeasures.length ? result.deletedMeasures.join(', ') : 'None') : 'Unavailable'}</li>
+              <li><strong>Relationship changes:</strong> ${result.relationshipChanges ? (result.relationshipChanges.length ? result.relationshipChanges.join(', ') : 'None') : 'Unavailable'}</li>
               <li><strong>Visual changes:</strong> ${result.visualChanges.length ? result.visualChanges.join(', ') : 'None'}</li>
             </ul>
           </div>
@@ -633,7 +640,8 @@
         alert(`The comparison could not be completed: ${error.message}`);
       } finally {
         setLoading(false);
-        target.value = '';
+        document.getElementById('compare-a').value = '';
+        document.getElementById('compare-b').value = '';
       }
     });
   }
@@ -723,37 +731,26 @@
     return projectData;
   }
 
-  async function loadProjectFromFiles(fileList) {
+  async function loadProjectFromFolder(fileList) {
     const files = Array.from(fileList || []);
-    const isFolderSelection = files.some((file) => file.webkitRelativePath);
-    const selectedFile = isFolderSelection ? null : files.find((file) => /\.(zip|pbix)$/i.test(file.name));
-    if (selectedFile) {
-      const projectData = await studio.parser.parseProjectFromZip(selectedFile, selectedFile.name);
-      state.project = processProject(projectData);
-      renderAll();
-      return;
+    const firstFolderFile = files.find((file) => file.webkitRelativePath);
+    if (!firstFolderFile) {
+      throw new Error('Select the PBIP project folder containing its .pbip manifest and related report/model folders.');
+    }
+    if (!files.some((file) => /\.(?:pbip|pbiproject)$/i.test(file.name))) {
+      throw new Error('The selected folder does not contain a .pbip project manifest. Select the PBIP project root folder.');
     }
 
-    if (files.length && isFolderSelection) {
-      const zip = new JSZip();
-      files.forEach((file) => {
-        const relativePath = file.webkitRelativePath || file.name;
-        zip.file(relativePath, file);
-      });
-      const generated = await zip.generateAsync({ type: 'blob' });
-      const firstFolderFile = files.find((file) => file.webkitRelativePath);
-      const rootFolder = firstFolderFile.webkitRelativePath.split('/')[0] || 'uploaded-project';
-      const projectData = await studio.parser.parseProjectFromZip(generated, `${rootFolder}.zip`);
-      state.project = processProject(projectData);
-      renderAll();
-      return;
+    const zip = new JSZip();
+    files.forEach((file) => zip.file(file.webkitRelativePath, file));
+    const generated = await zip.generateAsync({ type: 'blob' });
+    const rootFolder = firstFolderFile.webkitRelativePath.split('/')[0] || 'uploaded-project';
+    const projectData = await studio.parser.parseProjectFromZip(generated, `${rootFolder}.zip`);
+    if (projectData.metadata.format === 'PBIX') {
+      throw new Error('The selected folder contains a PBIX file, not a PBIP project. Select a folder with a .pbip manifest.');
     }
-
-    if (files.some((file) => /\.pbip$/i.test(file.name))) {
-      throw new Error('A .pbip file is the project manifest. Select its containing folder with “Select PBIP folder” so ModelIQ can read the related report and semantic model files.');
-    }
-
-    throw new Error('Choose a PBIX file, a PBIP ZIP archive, or a PBIP project folder.');
+    state.project = processProject(projectData);
+    renderAll();
   }
 
   function renderAll() {
@@ -794,23 +791,6 @@
       updateNav('overview-panel');
     });
 
-    document.getElementById('project-upload').addEventListener('change', async (event) => {
-      const target = event.target;
-      if (!target.files || !target.files.length) return;
-      document.getElementById('project-file-status').textContent = target.files[0].name;
-      setLoading(true, 'Processing upload...');
-      try {
-        await loadProjectFromFiles(target.files);
-      } catch (error) {
-        console.error(error);
-        setProjectStatus('Upload failed', 'warning');
-        alert(error.message);
-      } finally {
-        setLoading(false);
-        target.value = '';
-      }
-    });
-
     document.getElementById('project-folder-upload').addEventListener('change', async (event) => {
       const target = event.target;
       if (!target.files || !target.files.length) return;
@@ -820,7 +800,7 @@
       document.getElementById('project-folder-status').textContent = `Selected: ${rootFolder} (${target.files.length} files)`;
       setLoading(true, 'Loading PBIP folder...');
       try {
-        await loadProjectFromFiles(target.files);
+        await loadProjectFromFolder(target.files);
       } catch (error) {
         console.error(error);
         setProjectStatus('Upload failed', 'warning');

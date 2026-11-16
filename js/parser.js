@@ -454,6 +454,29 @@
     const entries = Object.keys(zip.files)
       .filter((key) => !zip.files[key].dir)
       .sort();
+    if (!isPbix) {
+      const nestedPbixPaths = entries.filter((entry) => /\.pbix$/i.test(entry));
+      if (nestedPbixPaths.length > 1) {
+        throw new Error('This ZIP contains multiple PBIX files. Select one PBIX file or ZIP a single PBIX at a time.');
+      }
+      if (nestedPbixPaths.length === 1) {
+        const nestedPbixPath = nestedPbixPaths[0];
+        const nestedPbixName = nestedPbixPath.split(/[\\/]/).pop();
+        const nestedPbixBytes = await zip.files[nestedPbixPath].async('uint8array');
+        const projectData = await parser.parseProjectFromZip(nestedPbixBytes, nestedPbixName);
+        projectData.sourceName = fileName || nestedPbixName;
+        projectData.metadata = {
+          ...projectData.metadata,
+          containerFormat: 'ZIP',
+          analysisNotes: [
+            ...(projectData.metadata.analysisNotes || []),
+            `Loaded "${nestedPbixName}" from the selected ZIP archive.`,
+          ],
+        };
+        return projectData;
+      }
+    }
+
     const pbipPages = new Map();
     let pbipPageOrder = [];
     const hasPbixLayout = entries.some((entry) => entry.toLowerCase() === 'report/layout');
