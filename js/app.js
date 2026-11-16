@@ -39,6 +39,11 @@
     }
   }
 
+  function showWorkspace() {
+    document.getElementById('landing-page').classList.add('hidden');
+    document.getElementById('workspace').classList.remove('hidden');
+  }
+
   function clamp(value) {
     return Math.max(0, Math.min(100, value));
   }
@@ -750,6 +755,7 @@
       throw new Error('The selected folder contains a PBIX file, not a PBIP project. Select a folder with a .pbip manifest.');
     }
     state.project = processProject(projectData);
+    showWorkspace();
     renderAll();
     updateNav('overview-panel');
   }
@@ -779,10 +785,15 @@
   function initializeSampleProject() {
     const sample = studio.parser.buildSampleProject();
     state.project = processProject(sample);
+    showWorkspace();
     renderAll();
   }
 
   function wireEvents() {
+    document.getElementById('landing-upload-button').addEventListener('click', () => {
+      document.getElementById('project-folder-upload').click();
+    });
+
     document.querySelectorAll('.nav-link').forEach((button) => {
       button.addEventListener('click', () => updateNav(button.dataset.target));
     });
@@ -798,13 +809,16 @@
       const folderFile = Array.from(target.files).find((file) => file.webkitRelativePath) || target.files[0];
       const firstPath = folderFile.webkitRelativePath || folderFile.name;
       const rootFolder = firstPath.split('/')[0];
-      document.getElementById('project-folder-status').textContent = `Selected: ${rootFolder} (${target.files.length} files)`;
+      const selectedMessage = `Selected: ${rootFolder} (${target.files.length} files)`;
+      document.getElementById('project-folder-status').textContent = selectedMessage;
+      document.getElementById('landing-upload-status').textContent = `${target.files.length} files selected. Analyzing your project...`;
       setLoading(true, 'Loading PBIP folder...');
       try {
         await loadProjectFromFolder(target.files);
       } catch (error) {
         console.error(error);
         setProjectStatus('Upload failed', 'warning');
+        document.getElementById('landing-upload-status').textContent = `Could not load folder: ${error.message}`;
         alert(error.message);
       } finally {
         setLoading(false);
@@ -818,7 +832,6 @@
   document.addEventListener('DOMContentLoaded', () => {
     mermaid.initialize({ startOnLoad: false, securityLevel: 'loose' });
     wireEvents();
-    initializeSampleProject();
     updateNav('overview-panel');
   });
 })();

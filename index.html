@@ -12,7 +12,148 @@
     <link rel="stylesheet" href="css/styles.css" />
   </head>
   <body>
-    <div class="app-shell">
+    <input id="project-folder-upload" type="file" webkitdirectory directory multiple class="visually-hidden" />
+
+    <section id="landing-page" class="landing-page" aria-labelledby="landing-title">
+      <div class="landing-frame">
+        <header class="landing-header">
+          <div class="landing-brand">
+            <img src="favicon.svg" alt="" class="landing-brand-icon" />
+            <span>Model<span class="landing-brand-iq">IQ</span></span>
+          </div>
+          <div class="landing-audience">POWER BI <span></span> MICROSOFT FABRIC</div>
+        </header>
+
+        <main class="landing-main">
+          <section class="landing-hero">
+            <div class="landing-copy">
+              <p class="landing-kicker"><span></span> SEMANTIC MODEL QUALITY, MADE CLEAR</p>
+              <h1 id="landing-title">AI is only as good as the model behind it.</h1>
+              <p class="landing-intro">
+                Copilot and Fabric are accelerating analytics, but trustworthy answers still depend on well-built semantic models.
+                Built for Power BI developers, consultants, and analytics teams, ModelIQ assesses your PBIP model and produces practical recommendations, documentation, and AI-ready context.
+              </p>
+              <div class="landing-local-note">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 6v5c0 4.7-2.9 8.1-7 10-4.1-1.9-7-5.3-7-10V6l7-3Z"/><path d="m9 12 2 2 4-4"/></svg>
+                PBIP metadata is analyzed in your browser. Your project files stay on your device.
+              </div>
+            </div>
+
+            <div class="landing-visual">
+              <svg class="model-illustration" viewBox="0 0 560 390" role="img" aria-labelledby="model-illustration-title">
+                <title id="model-illustration-title">Semantic model quality assessment illustration</title>
+                <defs>
+                  <linearGradient id="visual-bg" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="#17375f"/>
+                    <stop offset="1" stop-color="#091a32"/>
+                  </linearGradient>
+                  <linearGradient id="visual-accent" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="#74d9ff"/>
+                    <stop offset="1" stop-color="#347df2"/>
+                  </linearGradient>
+                  <radialGradient id="visual-glow">
+                    <stop offset="0" stop-color="#2889ed" stop-opacity=".35"/>
+                    <stop offset="1" stop-color="#2889ed" stop-opacity="0"/>
+                  </radialGradient>
+                  <filter id="visual-shadow" x="-30%" y="-30%" width="160%" height="170%">
+                    <feDropShadow dx="0" dy="14" stdDeviation="13" flood-color="#051326" flood-opacity=".35"/>
+                  </filter>
+                  <pattern id="visual-grid" width="24" height="24" patternUnits="userSpaceOnUse">
+                    <path d="M24 0H0V24" fill="none" stroke="#90cfff" stroke-opacity=".07" stroke-width="1"/>
+                  </pattern>
+                </defs>
+                <circle cx="293" cy="191" r="205" fill="url(#visual-glow)"/>
+                <rect x="34" y="24" width="492" height="342" rx="28" fill="url(#visual-bg)" stroke="#8acfff" stroke-opacity=".2"/>
+                <rect x="34" y="24" width="492" height="342" rx="28" fill="url(#visual-grid)"/>
+                <path d="M170 173 258 214M363 170l-48 44M184 281l79-38M366 280l-50-37" fill="none" stroke="#7ed5ff" stroke-opacity=".48" stroke-width="2" stroke-dasharray="5 7"/>
+                <g filter="url(#visual-shadow)">
+                  <rect x="66" y="78" width="155" height="132" rx="16" fill="#f8fbff"/>
+                  <rect x="66" y="78" width="155" height="34" rx="16" fill="#eaf3fb"/>
+                  <path d="M66 96a18 18 0 0 1 18-18h119a18 18 0 0 1 18 18v16H66Z" fill="#eaf3fb"/>
+                  <rect x="83" y="89" width="12" height="12" rx="3" fill="#46a9e8"/>
+                  <text x="104" y="100" fill="#314c6c" font-size="10" font-family="Inter, sans-serif" font-weight="700">SEMANTIC MODEL</text>
+                  <rect x="84" y="127" width="120" height="18" rx="5" fill="#e9f4fb"/>
+                  <rect x="93" y="133" width="54" height="5" rx="2.5" fill="#6ba6c9"/>
+                  <rect x="84" y="153" width="120" height="18" rx="5" fill="#f0f4f8"/>
+                  <rect x="93" y="159" width="74" height="5" rx="2.5" fill="#a5b8c9"/>
+                  <rect x="84" y="179" width="120" height="18" rx="5" fill="#f0f4f8"/>
+                  <rect x="93" y="185" width="62" height="5" rx="2.5" fill="#a5b8c9"/>
+                </g>
+                <g filter="url(#visual-shadow)">
+                  <rect x="238" y="132" width="126" height="142" rx="21" fill="#102c50" stroke="#6fcfff" stroke-opacity=".65"/>
+                  <circle cx="301" cy="180" r="29" fill="#0b2340" stroke="url(#visual-accent)" stroke-width="7"/>
+                  <path d="m289 180 8 8 16-18" fill="none" stroke="#a8edff" stroke-linecap="round" stroke-linejoin="round" stroke-width="5"/>
+                  <text x="301" y="229" text-anchor="middle" fill="#f2f8ff" font-size="11" font-family="Inter, sans-serif" font-weight="700">MODEL REVIEW</text>
+                  <text x="301" y="247" text-anchor="middle" fill="#9db8d3" font-size="9" font-family="Inter, sans-serif">Structure · quality · insight</text>
+                </g>
+                <g filter="url(#visual-shadow)">
+                  <rect x="385" y="77" width="112" height="103" rx="16" fill="#f8fbff"/>
+                  <circle cx="407" cy="101" r="8" fill="#d9f6ec"/>
+                  <path d="m403 101 3 3 5-6" fill="none" stroke="#138a72" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+                  <text x="422" y="104" fill="#244766" font-size="10" font-family="Inter, sans-serif" font-weight="700">AI READY</text>
+                  <rect x="402" y="122" width="77" height="6" rx="3" fill="#dce8f1"/>
+                  <rect x="402" y="136" width="61" height="6" rx="3" fill="#dce8f1"/>
+                  <rect x="402" y="150" width="69" height="6" rx="3" fill="#dce8f1"/>
+                </g>
+                <g filter="url(#visual-shadow)">
+                  <rect x="88" y="249" width="118" height="75" rx="14" fill="#102c50" stroke="#75cfff" stroke-opacity=".36"/>
+                  <text x="105" y="270" fill="#9db8d3" font-size="9" font-family="Inter, sans-serif" font-weight="700">MODEL SIGNALS</text>
+                  <rect x="105" y="287" width="9" height="22" rx="3" fill="#65c8f2"/>
+                  <rect x="121" y="279" width="9" height="30" rx="3" fill="#388ce4"/>
+                  <rect x="137" y="283" width="9" height="26" rx="3" fill="#67d5bc"/>
+                  <rect x="153" y="272" width="9" height="37" rx="3" fill="#a3dffc"/>
+                  <rect x="169" y="278" width="9" height="31" rx="3" fill="#388ce4"/>
+                </g>
+                <g filter="url(#visual-shadow)">
+                  <rect x="385" y="219" width="112" height="89" rx="15" fill="#102c50" stroke="#75cfff" stroke-opacity=".36"/>
+                  <text x="402" y="242" fill="#9db8d3" font-size="9" font-family="Inter, sans-serif" font-weight="700">CONNECTED MODEL</text>
+                  <circle cx="414" cy="270" r="8" fill="#64c8f1"/>
+                  <circle cx="448" cy="258" r="7" fill="#a5e8ff"/>
+                  <circle cx="474" cy="280" r="8" fill="#67d5bc"/>
+                  <path d="m421 267 20-7m13 3 14 12m-48 1 46 3" fill="none" stroke="#8acfff" stroke-opacity=".8" stroke-width="2"/>
+                </g>
+                <circle cx="252" cy="82" r="4" fill="#79d9ff"/>
+                <circle cx="335" cy="311" r="4" fill="#67d5bc"/>
+                <circle cx="469" cy="199" r="3" fill="#79d9ff" opacity=".8"/>
+              </svg>
+            </div>
+          </section>
+
+          <section class="landing-solutions" aria-label="What ModelIQ can help you do">
+            <article class="solution-card">
+              <div class="solution-number">01 <span>AI CONTEXT</span></div>
+              <h2>“I want my model in Copilot.”</h2>
+              <p>Export a TXT context file to add to your Copilot chat.</p>
+            </article>
+            <article class="solution-card">
+              <div class="solution-number">02 <span>DOCUMENTATION</span></div>
+              <h2>“I need model documentation.”</h2>
+              <p>Generate a structured guide to the semantic model and report.</p>
+            </article>
+            <article class="solution-card">
+              <div class="solution-number">03 <span>MEASURE DEEP DIVE</span></div>
+              <h2>“I need to understand my measures.”</h2>
+              <p>Explore definitions, dependencies, and analysis together.</p>
+            </article>
+          </section>
+        </main>
+
+        <footer class="landing-upload">
+          <div class="landing-upload-copy">
+            <strong>Start with your semantic model</strong>
+            <span>Select the root folder containing your .pbip project file.</span>
+          </div>
+          <button id="landing-upload-button" type="button" class="landing-upload-button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5M5 14v5h14v-5"/></svg>
+            Select PBIP Project Folder
+          </button>
+          <div id="landing-upload-status" class="landing-upload-status" aria-live="polite"></div>
+        </footer>
+        <div class="landing-version app-version">v0.12</div>
+      </div>
+    </section>
+
+    <div class="app-shell hidden" id="workspace">
       <aside class="sidebar">
         <div class="brand-wrap">
           <img src="ModelIQ_Logo.png" alt="ModelIQ logo" class="brand-logo" />
@@ -20,10 +161,9 @@
 
         <div class="sidebar-section">
           <label for="project-folder-upload" class="upload-label">PBIP Project Folder</label>
-          <input id="project-folder-upload" type="file" webkitdirectory directory multiple class="visually-hidden" />
           <label for="project-folder-upload" class="btn btn-outline-light btn-sm w-100 mb-1">Select PBIP Project Folder</label>
           <div id="project-folder-status" class="upload-help mb-2">Choose the project root containing the .pbip file and its report/model folders.</div>
-          <button id="sample-project-btn" class="btn btn-primary btn-sm w-100">Load sample project</button>
+          <button id="sample-project-btn" class="btn btn-primary btn-sm w-100">Load demo project</button>
         </div>
 
         <nav class="nav flex-column nav-pills" id="main-nav">
@@ -49,7 +189,7 @@
           </div>
           <div id="project-status" class="status-badge muted">Waiting for upload</div>
         </header>
-        <div class="app-version">v0.11</div>
+        <div class="app-version workspace-version">v0.12</div>
 
         <div class="tab-panels">
           <section id="overview-panel" class="tab-panel active">
