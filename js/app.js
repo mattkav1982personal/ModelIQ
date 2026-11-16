@@ -798,10 +798,13 @@
       button.addEventListener('click', () => updateNav(button.dataset.target));
     });
 
-    document.getElementById('sample-project-btn').addEventListener('click', () => {
+    const loadSampleProject = () => {
       initializeSampleProject();
       updateNav('overview-panel');
-    });
+    };
+
+    document.getElementById('sample-project-btn').addEventListener('click', loadSampleProject);
+    document.getElementById('landing-sample-button').addEventListener('click', loadSampleProject);
 
     document.getElementById('project-folder-upload').addEventListener('change', async (event) => {
       const target = event.target;

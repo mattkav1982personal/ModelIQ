@@ -777,6 +777,45 @@ button, input, select {
   transition: transform 160ms ease, filter 160ms ease, box-shadow 160ms ease;
 }
 
+.landing-upload-actions {
+  display: flex;
+  grid-column: 2;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.landing-upload-or {
+  color: #8fa9c2;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.landing-sample-button {
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid rgba(167, 207, 240, 0.22);
+  border-radius: 11px;
+  background: rgba(224, 239, 251, 0.07);
+  color: #d3e2f0;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 650;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.landing-sample-button:hover {
+  border-color: rgba(167, 207, 240, 0.42);
+  background: rgba(224, 239, 251, 0.13);
+  color: #fff;
+}
+
+.landing-sample-button:focus-visible {
+  outline: 3px solid #d5f4ff;
+  outline-offset: 3px;
+}
+
 .landing-upload-button:hover {
   transform: translateY(-1px);
   filter: brightness(1.08);
@@ -912,6 +951,10 @@ button, input, select {
     grid-template-columns: 1fr auto;
   }
 
+  .landing-upload-actions {
+    grid-column: 2;
+  }
+
   .landing-upload-status {
     grid-column: 1 / -1;
     justify-self: center;
@@ -1004,6 +1047,11 @@ button, input, select {
     text-align: center;
   }
 
+  .landing-upload-actions {
+    grid-column: 1;
+    gap: 6px;
+  }
+
   .landing-upload-copy {
     align-items: center;
   }
@@ -1018,7 +1066,19 @@ button, input, select {
 
   .landing-upload-button {
     min-height: 40px;
-    font-size: 0.78rem;
+    padding: 0 4px;
+    gap: 6px;
+    font-size: 0.72rem;
+  }
+
+  .landing-sample-button {
+    min-height: 40px;
+    padding: 0 4px;
+    font-size: 0.72rem;
+  }
+
+  .landing-upload-or {
+    font-size: 0.65rem;
   }
 
   .landing-upload-status {

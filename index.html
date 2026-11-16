@@ -143,13 +143,17 @@
             <strong>Start with your semantic model</strong>
             <span>Select the root folder containing your .pbip project file.</span>
           </div>
-          <button id="landing-upload-button" type="button" class="landing-upload-button">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5M5 14v5h14v-5"/></svg>
-            Select PBIP Project Folder
-          </button>
+          <div class="landing-upload-actions">
+            <button id="landing-upload-button" type="button" class="landing-upload-button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5M5 14v5h14v-5"/></svg>
+              Select PBIP Project Folder
+            </button>
+            <span class="landing-upload-or">Or</span>
+            <button id="landing-sample-button" type="button" class="landing-sample-button">Load Sample Project</button>
+          </div>
           <div id="landing-upload-status" class="landing-upload-status" aria-live="polite"></div>
         </footer>
-        <div class="landing-version app-version">v0.12</div>
+        <div class="landing-version app-version">v0.13</div>
       </div>
     </section>
 
@@ -163,7 +167,7 @@
           <label for="project-folder-upload" class="upload-label">PBIP Project Folder</label>
           <label for="project-folder-upload" class="btn btn-outline-light btn-sm w-100 mb-1">Select PBIP Project Folder</label>
           <div id="project-folder-status" class="upload-help mb-2">Choose the project root containing the .pbip file and its report/model folders.</div>
-          <button id="sample-project-btn" class="btn btn-primary btn-sm w-100">Load demo project</button>
+          <button id="sample-project-btn" class="btn btn-primary btn-sm w-100">Load Sample Project</button>
         </div>
 
         <nav class="nav flex-column nav-pills" id="main-nav">
@@ -189,7 +193,7 @@
           </div>
           <div id="project-status" class="status-badge muted">Waiting for upload</div>
         </header>
-        <div class="app-version workspace-version">v0.12</div>
+        <div class="app-version workspace-version">v0.13</div>
 
         <div class="tab-panels">
           <section id="overview-panel" class="tab-panel active">
