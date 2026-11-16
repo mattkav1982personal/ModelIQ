@@ -751,6 +751,7 @@
     }
     state.project = processProject(projectData);
     renderAll();
+    updateNav('overview-panel');
   }
 
   function renderAll() {
