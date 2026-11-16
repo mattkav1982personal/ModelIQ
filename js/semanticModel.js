@@ -23,6 +23,7 @@
 
     const columnCount = tables.reduce((count, table) => count + getTableColumns(table).length, 0);
     const hiddenColumns = tables.reduce((count, table) => count + getTableColumns(table).filter((column) => column.hidden).length, 0);
+    const reportPages = Array.isArray(projectData?.report?.pages) ? projectData.report.pages : [];
 
     const enrichedMeasures = measures.map((measure, index) => {
       const expression = measure.expression || '';
@@ -64,8 +65,10 @@
         relationshipCount: relationships.length,
         columnCount,
         hiddenColumns,
-        visualCount: Array.isArray(projectData?.report?.pages) ? projectData.report.pages.reduce((count, page) => count + (page.visualCount || 0), 0) : 0,
-        reportPageCount: Array.isArray(projectData?.report?.pages) ? projectData.report.pages.length : 0,
+        visualCount: reportPages.reduce((count, page) => count + (page.visualCount || 0), 0),
+        reportPageCount: reportPages.length,
+        visibleReportPageCount: reportPages.filter((page) => !page.hidden).length,
+        hiddenReportPageCount: reportPages.filter((page) => page.hidden).length,
         dataSources: projectData?.model?.dataSources || [],
       },
     };

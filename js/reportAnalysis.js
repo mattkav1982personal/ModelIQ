@@ -23,6 +23,8 @@
       slicerCount: visualList.filter((visual) => /slicer/i.test(visual.type || '')).length,
       bookmarkCount: Array.isArray(projectData?.report?.bookmarks) ? projectData.report.bookmarks.length : 0,
       pageCount: pages.length,
+      visiblePageCount: pages.filter((page) => !page.hidden).length,
+      hiddenPageCount: pages.filter((page) => page.hidden).length,
     };
   };
 })();

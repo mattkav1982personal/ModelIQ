@@ -11,18 +11,97 @@
     }
   }
 
-  function toTitleCase(value) {
-    if (!value) return '';
-    return value
-      .replace(/[_-]+/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .replace(/\b\w/g, (letter) => letter.toUpperCase());
-  }
-
   function normalizeTableName(name) {
     if (!name) return 'Unknown Table';
     return String(name).replace(/^['"]|['"]$/g, '').trim();
+  }
+
+  function stripTmdlQuotes(value) {
+    const text = String(value || '').trim();
+    const quote = text[0];
+    if ((quote !== "'" && quote !== '"') || text[text.length - 1] !== quote) return text;
+
+    for (let index = 1; index < text.length - 1; index += 1) {
+      if (text[index] !== quote) continue;
+      if (text[index + 1] === quote) {
+        index += 1;
+        continue;
+      }
+      return text;
+    }
+
+    return text.slice(1, -1).split(`${quote}${quote}`).join(quote);
+  }
+
+  function getTmdlProperty(line, name) {
+    const match = line.match(new RegExp(`^${name}\\s*[:=]\\s*(.*?)\\s*$`, 'i'));
+    return match ? stripTmdlQuotes(match[1]) : null;
+  }
+
+  function getTmdlFlag(line, name) {
+    const match = line.match(new RegExp(`^${name}(?:\\s*[:=]\\s*(.*))?$`, 'i'));
+    if (!match) return null;
+    return match[1] === undefined || /^(true|1|yes)$/i.test(stripTmdlQuotes(match[1]));
+  }
+
+  function getPrecedingDocComment(lines, lineIndex) {
+    const comments = [];
+    for (let index = lineIndex - 1; index >= 0; index -= 1) {
+      const line = lines[index].trim();
+      if (!line && comments.length === 0) continue;
+      if (!line.startsWith('///')) break;
+      comments.unshift(line.slice(3).trim());
+    }
+    return comments.join(' ').trim();
+  }
+
+  function parseTmdlColumnReference(value) {
+    const match = String(value || '').trim().match(/^('(?:[^']|'')*'|[^.]+)\.(.+)$/);
+    if (!match) return { table: normalizeTableName(value), column: '' };
+    return {
+      table: normalizeTableName(match[1]),
+      column: normalizeColumnName(match[2]),
+    };
+  }
+
+  function parseTmdlRelationships(content, sourceName) {
+    const relationships = [];
+    const relationshipRegex = /^[ \t]*relationship[ \t]+([^\r\n]+)[ \t]*$/gim;
+    const matches = Array.from(content.matchAll(relationshipRegex));
+
+    matches.forEach((match, index) => {
+      const endIndex = matches[index + 1] ? matches[index + 1].index : content.length;
+      const section = content.slice(match.index, endIndex);
+      const property = (name) => {
+        const line = section.split(/\r?\n/).map((value) => value.trim()).find((value) => new RegExp(`^${name}\\s*:`, 'i').test(value));
+        return line ? getTmdlProperty(line, name) : null;
+      };
+      const from = parseTmdlColumnReference(property('fromColumn'));
+      const to = parseTmdlColumnReference(property('toColumn'));
+      if (!from.column || !to.column) return;
+
+      const fromCardinality = property('fromCardinality')?.toLowerCase();
+      const toCardinality = property('toCardinality')?.toLowerCase();
+      let cardinality = 'Many-to-one';
+      if (fromCardinality === 'one' && toCardinality === 'many') cardinality = 'One-to-many';
+      if (fromCardinality === 'one' && toCardinality === 'one') cardinality = 'One-to-one';
+
+      const direction = property('crossFilteringBehavior')?.toLowerCase();
+      const activeLine = section.split(/\r?\n/).map((value) => value.trim()).find((value) => /^isActive(?:\s*[:=])?/i.test(value));
+      relationships.push({
+        name: stripTmdlQuotes(match[1]),
+        from: from.table,
+        fromColumn: from.column,
+        to: to.table,
+        toColumn: to.column,
+        cardinality,
+        active: activeLine ? getTmdlFlag(activeLine, 'isActive') : true,
+        crossFilter: direction === 'bothdirections' ? 'Both' : 'Single',
+        sourceName,
+      });
+    });
+
+    return relationships;
   }
 
   function normalizeColumn(column) {
@@ -31,7 +110,8 @@
       name: column.name || column.Name || 'Unnamed Column',
       dataType: column.dataType || column.data_type || column.DataType || 'Unknown',
       formatString: column.formatString || column.format_string || '',
-      hidden: Boolean(column.hidden || column.Hidden),
+      description: column.description || column.Description || '',
+      hidden: Boolean(column.hidden || column.Hidden || column.isHidden),
       isKey: Boolean(column.isKey || column.keyColumn || column.KeyColumn),
       sortBy: column.sortByColumn || column.sort_by_column || '',
     };
@@ -40,25 +120,27 @@
   function parseTmdl(content, sourceName) {
     const tables = [];
     const measures = [];
-    const relationships = [];
+    const relationships = parseTmdlRelationships(content, sourceName);
     const dataSources = [];
 
-    const tableRegex = /^table\s+["']?([^"'\n]+)["']?/gim;
+    const tableRegex = /^[ \t]*table[ \t]+(.+?)\s*$/gim;
     const tableMatches = Array.from(content.matchAll(tableRegex));
 
     if (tableMatches.length === 0) {
       return { tables, measures, relationships, dataSources };
     }
 
+    const allLines = content.split(/\r?\n/);
     tableMatches.forEach((match, index) => {
       const tableName = normalizeTableName(match[1]);
       const startIndex = match.index;
       const nextStart = tableMatches[index + 1] ? tableMatches[index + 1].index : content.length;
       const section = content.slice(startIndex, nextStart);
+      const lineIndex = content.slice(0, startIndex).split(/\r?\n/).length - 1;
 
       const table = {
         name: tableName,
-        description: '',
+        description: getPrecedingDocComment(allLines, lineIndex),
         dataSource: '',
         storageMode: 'Unknown',
         hidden: false,
@@ -69,101 +151,88 @@
 
       const lines = section.split(/\r?\n/);
       let currentColumn = null;
+      let pendingDescription = [];
 
       lines.forEach((line) => {
         const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('//')) return;
-
-        if (/^description\s*=/.test(trimmed)) {
-          table.description = trimmed.split('=').slice(1).join('=').replace(/["';]+/g, '').trim();
+        if (!trimmed) return;
+        if (trimmed.startsWith('///')) {
+          pendingDescription.push(trimmed.slice(3).trim());
+          return;
         }
 
-        if (/^dataSource\s*=/.test(trimmed)) {
-          table.dataSource = trimmed.split('=').slice(1).join('=').replace(/["';]+/g, '').trim();
-          if (table.dataSource) dataSources.push(table.dataSource);
-        }
+        const tableDescription = getTmdlProperty(trimmed, 'description');
+        if (tableDescription !== null) table.description = tableDescription;
 
-        if (/^storageMode\s*=/.test(trimmed)) {
-          table.storageMode = trimmed.split('=').slice(1).join('=').replace(/["';]+/g, '').trim();
-        }
+        const dataSource = getTmdlProperty(trimmed, 'dataSource');
+        if (dataSource !== null) table.dataSource = dataSource;
 
-        if (/^hidden\s*=/.test(trimmed)) {
-          table.hidden = /true/i.test(trimmed.split('=').slice(1).join('='));
-        }
+        const storageMode = getTmdlProperty(trimmed, 'storageMode') || getTmdlProperty(trimmed, 'mode');
+        if (storageMode !== null) table.storageMode = storageMode;
 
-        const columnMatch = trimmed.match(/^column\s+["']?([^"'\n]+)["']?/i);
+        const tableHidden = getTmdlFlag(trimmed, 'isHidden') ?? getTmdlFlag(trimmed, 'hidden');
+        if (tableHidden !== null) table.hidden = tableHidden;
+
+        const columnMatch = trimmed.match(/^column\s+(.+)$/i);
         if (columnMatch) {
           currentColumn = {
             name: normalizeColumnName(columnMatch[1]),
             dataType: 'Unknown',
             formatString: '',
+            description: pendingDescription.join(' ').trim(),
             hidden: false,
             isKey: false,
             sortBy: '',
           };
           table.columns.push(currentColumn);
+          pendingDescription = [];
           return;
         }
 
-        if (currentColumn && /^\s*dataType\s*=/.test(trimmed)) {
-          currentColumn.dataType = trimmed.split('=').slice(1).join('=').replace(/["';]+/g, '').trim();
-        }
+        if (!currentColumn) return;
+        const dataType = getTmdlProperty(trimmed, 'dataType');
+        const formatString = getTmdlProperty(trimmed, 'formatString');
+        const sortBy = getTmdlProperty(trimmed, 'sortByColumn');
+        if (dataType !== null) currentColumn.dataType = dataType;
+        if (formatString !== null) currentColumn.formatString = formatString;
+        if (sortBy !== null) currentColumn.sortBy = sortBy;
 
-        if (currentColumn && /^\s*formatString\s*=/.test(trimmed)) {
-          currentColumn.formatString = trimmed.split('=').slice(1).join('=').replace(/["';]+/g, '').trim();
-        }
+        const columnHidden = getTmdlFlag(trimmed, 'isHidden') ?? getTmdlFlag(trimmed, 'hidden');
+        if (columnHidden !== null) currentColumn.hidden = columnHidden;
 
-        if (currentColumn && /^\s*hidden\s*=/.test(trimmed)) {
-          currentColumn.hidden = /true/i.test(trimmed.split('=').slice(1).join('='));
-        }
-
-        if (currentColumn && /^\s*sortByColumn\s*=/.test(trimmed)) {
-          currentColumn.sortBy = trimmed.split('=').slice(1).join('=').replace(/["';]+/g, '').trim();
-        }
-
-        if (currentColumn && /^\s*isKey\s*=/.test(trimmed)) {
-          currentColumn.isKey = /true/i.test(trimmed.split('=').slice(1).join('='));
-        }
+        const isKey = getTmdlFlag(trimmed, 'isKey');
+        if (isKey !== null) currentColumn.isKey = isKey;
       });
 
-      if (table.columns.length) {
-        tables.push(table);
-      }
-    });
+      tables.push(table);
 
-    const measureRegex = /^measure\s+["']?([^"'\n]+)["']?\s*=/gim;
-    const measureMatches = Array.from(content.matchAll(measureRegex));
-    measureMatches.forEach((match) => {
-      const name = normalizeColumnName(match[1]);
-      const startIndex = match.index;
-      const nextStart = measureMatches[measureMatches.indexOf(match) + 1] ? measureMatches[measureMatches.indexOf(match) + 1].index : content.length;
-      const section = content.slice(startIndex, nextStart);
-      const expression = section.replace(/^measure\s+["']?[^\n]+["']?\s*=\s*/i, '').replace(/\s*;\s*$/g, '').trim();
-      measures.push({
-        name,
-        expression,
-        table: 'Unknown Table',
-        description: '',
-        complexity: 'Simple',
-        sourceName,
-      });
-    });
+      const measureRegex = /^[ \t]*measure[ \t]+(.+?)[ \t]*=[ \t]*(.*)$/gim;
+      const measureMatches = Array.from(section.matchAll(measureRegex));
+      measureMatches.forEach((measureMatch) => {
+        const matchLine = measureMatch[0].trim();
+        const equalsIndex = matchLine.indexOf('=');
+        const name = normalizeColumnName(matchLine.slice('measure'.length, equalsIndex).trim());
+        let expression = measureMatch[2].trim();
+        const remainder = section.slice(measureMatch.index + measureMatch[0].length);
 
-    const relationshipRegex = /^relationship\s+([\s\S]*?)$/gim;
-    const relaMatches = Array.from(content.matchAll(relationshipRegex));
-    relaMatches.forEach((match) => {
-      const raw = match[0].replace(/^relationship\s*/i, '').trim();
-      if (!raw) return;
-      const parts = raw.split(/\s+from\s+|\s+to\s+|\s+type\s+|\s+crossFilter\s+/i);
-      const from = parts[1] || 'Unknown';
-      const to = parts[2] || 'Unknown';
-      relationships.push({
-        from: normalizeTableName(from),
-        to: normalizeTableName(to),
-        cardinality: 'Many-to-one',
-        active: true,
-        crossFilter: 'Single',
-        sourceName,
+        for (const expressionLine of remainder.split(/\r?\n/)) {
+          const value = expressionLine.trim();
+          if (!value) continue;
+          if (/^(?:\/\/\/|annotation\b|column\b|measure\b|partition\b|hierarchy\b)/i.test(value)) break;
+          if (/^(?:description|formatString|displayFolder|isHidden|lineageTag|dataCategory|detailRowsDefinition|kpi|changedProperty)\s*[:=]/i.test(value)) break;
+          expression = expression ? `${expression}\n${value}` : value;
+        }
+
+        const measureLineIndex = section.slice(0, measureMatch.index).split(/\r?\n/).length - 1;
+        const sectionLines = section.split(/\r?\n/);
+        measures.push({
+          name,
+          expression: expression.replace(/\s*;\s*$/, '').trim(),
+          table: tableName,
+          description: getPrecedingDocComment(sectionLines, measureLineIndex),
+          complexity: 'Simple',
+          sourceName,
+        });
       });
     });
 
@@ -172,7 +241,7 @@
 
   function normalizeColumnName(name) {
     if (!name) return 'Unnamed';
-    return String(name).replace(/^['"]|['"]$/g, '').trim();
+    return stripTmdlQuotes(name);
   }
 
   function decodeText(bytes) {
@@ -243,40 +312,85 @@
   function parseJsonLike(source, path) {
     const data = typeof source === 'string' ? safeJsonParse(source) : source;
     if (!data || typeof data !== 'object') return null;
+    const model = data.model && typeof data.model === 'object' ? data.model : data;
+    const modelTables = Array.isArray(model.tables) ? model.tables : [];
 
-    const result = { tables: [], measures: [], relationships: [], pages: [], visuals: [] };
+    const result = { tables: [], measures: [], relationships: [], pages: [], visuals: [], dataSources: [] };
 
-    if (Array.isArray(data.tables)) {
-      result.tables = data.tables.map((table) => ({
+    if (modelTables.length) {
+      result.tables = modelTables.map((table) => ({
         name: table.name || table.Name || 'Untitled Table',
         description: table.description || table.Description || '',
         columns: Array.isArray(table.columns) ? table.columns.map(normalizeColumn) : [],
         dataSource: table.dataSource || table.DataSource || '',
-        storageMode: table.storageMode || table.StorageMode || 'Unknown',
-        hidden: Boolean(table.hidden || table.Hidden),
+        storageMode: table.storageMode || table.StorageMode || table.partitions?.[0]?.mode || 'Unknown',
+        hidden: Boolean(table.hidden || table.Hidden || table.isHidden),
         sourcePath: path,
       }));
     }
 
-    if (Array.isArray(data.measures)) {
-      result.measures = data.measures.map((measure) => ({
+    const measures = [
+      ...(Array.isArray(model.measures) ? model.measures : []),
+      ...modelTables.flatMap((table) => (Array.isArray(table.measures)
+        ? table.measures.map((measure) => ({ ...measure, table: measure.table || table.name || table.Name }))
+        : [])),
+    ];
+    if (measures.length) {
+      const uniqueMeasures = new Map();
+      measures.forEach((measure) => {
+        const tableName = measure.table || measure.Table || 'Unknown Table';
+        const name = measure.name || measure.Name || 'Unnamed Measure';
+        uniqueMeasures.set(`${tableName}.${name}`, {
+          name,
+          table: tableName,
+          expression: Array.isArray(measure.expression || measure.Expression)
+            ? (measure.expression || measure.Expression).join('\n')
+            : measure.expression || measure.Expression || '',
+          description: measure.description || measure.Description || '',
+          sourcePath: path,
+        });
+      });
+      result.measures = [...uniqueMeasures.values()];
+    }
+
+    const relationships = Array.isArray(model.relationships) ? model.relationships : [];
+    if (relationships.length) {
+      result.relationships = relationships.map((relation) => ({
+        from: relation.from || relation.fromTable || relation.FromTable || 'Unknown',
+        fromColumn: relation.fromColumn || relation.FromColumn || '',
+        to: relation.to || relation.toTable || relation.ToTable || 'Unknown',
+        toColumn: relation.toColumn || relation.ToColumn || '',
+        cardinality: relation.cardinality || relation.Cardinality || (
+          relation.fromCardinality === 'one' && relation.toCardinality === 'many'
+            ? 'One-to-many'
+            : relation.fromCardinality === 'one' && relation.toCardinality === 'one'
+              ? 'One-to-one'
+              : 'Many-to-one'
+        ),
+        active: relation.active !== undefined
+          ? Boolean(relation.active)
+          : relation.isActive !== undefined
+            ? Boolean(relation.isActive)
+            : true,
+        crossFilter: relation.crossFilter || relation.CrossFilterDirection || (
+          /both/i.test(relation.crossFilteringBehavior || '') ? 'Both' : 'Single'
+        ),
+        sourcePath: path,
+      }));
+    }
+
+    if (Array.isArray(model.dataSources)) {
+      result.dataSources = model.dataSources.map((source) => source.name || source.Name || source.type || 'Unknown');
+    }
+
+    if (Array.isArray(data.measures) && model !== data) {
+      result.measures.push(...data.measures.map((measure) => ({
         name: measure.name || measure.Name || 'Unnamed Measure',
         table: measure.table || measure.Table || 'Unknown Table',
         expression: measure.expression || measure.Expression || '',
         description: measure.description || measure.Description || '',
         sourcePath: path,
-      }));
-    }
-
-    if (Array.isArray(data.relationships)) {
-      result.relationships = data.relationships.map((relation) => ({
-        from: relation.from || relation.FromTable || 'Unknown',
-        to: relation.to || relation.ToTable || 'Unknown',
-        cardinality: relation.cardinality || relation.Cardinality || 'Many-to-one',
-        active: relation.active !== undefined ? Boolean(relation.active) : true,
-        crossFilter: relation.crossFilter || relation.CrossFilterDirection || 'Single',
-        sourcePath: path,
-      }));
+      })));
     }
 
     if (Array.isArray(data.pages)) {
@@ -298,6 +412,36 @@
     return result;
   }
 
+  function getPbipPageId(filePath) {
+    const parts = filePath.split(/[\\/]/);
+    const definitionIndex = parts.findIndex((part) => part.toLowerCase() === 'definition');
+    if (definitionIndex < 0 || !parts[definitionIndex + 1] || parts[definitionIndex + 1].toLowerCase() !== 'pages') return null;
+    const pageId = parts[definitionIndex + 2];
+    return pageId && pageId.toLowerCase() !== 'pages' ? pageId : null;
+  }
+
+  function getPbipVisualReferences(queryState) {
+    const tables = new Set();
+    const fields = new Set();
+    if (!queryState || typeof queryState !== 'object') return { tables: [], fields: [] };
+
+    Object.values(queryState).forEach((state) => {
+      (Array.isArray(state?.projections) ? state.projections : []).forEach((projection) => {
+        const field = projection?.field;
+        if (!field || typeof field !== 'object') return;
+        Object.values(field).forEach((definition) => {
+          const entity = definition?.Expression?.SourceRef?.Entity;
+          const property = definition?.Property;
+          if (typeof entity !== 'string' || typeof property !== 'string') return;
+          tables.add(entity);
+          fields.add(`${entity}.${property}`);
+        });
+      });
+    });
+
+    return { tables: [...tables], fields: [...fields] };
+  }
+
   parser.parseProjectFromZip = async function parseProjectFromZip(zipFile, fileName) {
     const isPbix = /\.pbix$/i.test(fileName || '');
     let zip;
@@ -310,6 +454,8 @@
     const entries = Object.keys(zip.files)
       .filter((key) => !zip.files[key].dir)
       .sort();
+    const pbipPages = new Map();
+    let pbipPageOrder = [];
     const hasPbixLayout = entries.some((entry) => entry.toLowerCase() === 'report/layout');
     if (isPbix && !hasPbixLayout) {
       throw new Error('This PBIX does not contain a readable Report/Layout entry. It may be encrypted or use an unsupported format.');
@@ -348,6 +494,8 @@
     for (const filePath of entries) {
       const file = zip.files[filePath];
       const lower = filePath.toLowerCase();
+      const isTmdlDefinitionFile = lower.endsWith('.tmdl')
+        && /(?:^|[\\/])definition[\\/].+\.tmdl$/i.test(filePath);
 
       if (isPbix && lower === 'report/layout') {
         const bytes = await file.async('uint8array');
@@ -366,11 +514,60 @@
         || lower.endsWith('report.json')
         || lower.endsWith('definition.pbir')
         || lower.endsWith('.bim')
-        || lower.endsWith('.tmdl')
+        || isTmdlDefinitionFile
         || (lower.endsWith('.json') && /report|metadata|database|model/i.test(filePath));
       if (!isRelevantTextFile) continue;
 
       const content = await file.async('string');
+      const isPagesMetadata = /(?:^|[\\/])definition[\\/]pages[\\/]pages\.json$/i.test(filePath);
+      const isPageMetadata = /(?:^|[\\/])definition[\\/]pages[\\/][^\\/]+[\\/]page\.json$/i.test(filePath);
+      const isVisualMetadata = /(?:^|[\\/])definition[\\/]pages[\\/][^\\/]+[\\/]visuals[\\/][^\\/]+[\\/]visual\.json$/i.test(filePath);
+
+      if (isPagesMetadata) {
+        const json = safeJsonParse(content);
+        pbipPageOrder = Array.isArray(json?.pageOrder) ? json.pageOrder : [];
+        continue;
+      }
+
+      if (isPageMetadata) {
+        const json = safeJsonParse(content);
+        const pageId = getPbipPageId(filePath);
+        if (json && pageId) {
+          pbipPages.set(pageId, {
+            name: json.name || pageId,
+            displayName: json.displayName || json.name || pageId,
+            visibility: json.visibility || 'Visible',
+            hidden: json.hidden === true || /hidden/i.test(json.visibility || ''),
+            visuals: [],
+          });
+        }
+        continue;
+      }
+
+      if (isVisualMetadata) {
+        const json = safeJsonParse(content);
+        const pageId = getPbipPageId(filePath);
+        if (json && pageId) {
+          const page = pbipPages.get(pageId) || {
+            name: pageId,
+            displayName: pageId,
+            visibility: 'Visible',
+            hidden: false,
+            visuals: [],
+          };
+          const visual = json.visual || {};
+          const references = getPbipVisualReferences(visual.query?.queryState);
+          const type = visual.visualType || 'Unknown';
+          page.visuals.push({
+            name: getVisualTitle(visual.visualContainerObjects || visual.objects) || `${type} ${page.visuals.length + 1}`,
+            type,
+            ...references,
+            sourcePath: filePath,
+          });
+          pbipPages.set(pageId, page);
+        }
+        continue;
+      }
 
       if (lower.endsWith('.pbiproject') || lower.endsWith('.pbip')) {
         const json = safeJsonParse(content);
@@ -391,6 +588,23 @@
         }
       }
 
+      if (pbipPages.size) {
+        const orderedPageIds = [
+          ...pbipPageOrder,
+          ...[...pbipPages.keys()].filter((pageId) => !pbipPageOrder.includes(pageId)),
+        ];
+        projectData.report.pages = orderedPageIds
+          .filter((pageId) => pbipPages.has(pageId))
+          .map((pageId) => {
+            const page = pbipPages.get(pageId);
+            return {
+              ...page,
+              visualCount: page.visuals.length,
+            };
+          });
+        projectData.report.visuals = projectData.report.pages.flatMap((page) => page.visuals);
+      }
+
       if (lower.endsWith('model.bim') || lower.endsWith('.bim')) {
         const json = safeJsonParse(content);
         if (json) {
@@ -402,7 +616,7 @@
         }
       }
 
-      if (lower.endsWith('.tmdl')) {
+      if (isTmdlDefinitionFile) {
         const tmdlResult = parseTmdl(content, filePath);
         projectData.model.tables.push(...tmdlResult.tables);
         projectData.model.measures.push(...tmdlResult.measures);

@@ -34,6 +34,9 @@
       panel.classList.toggle('active', panel.id === targetId);
     });
     state.activeTab = targetId;
+    if (targetId === 'relationships-panel' && state.project) {
+      renderRelationships(state.project);
+    }
   }
 
   function clamp(value) {
@@ -94,7 +97,8 @@
       { label: 'Total measures', value: hasSemanticModel ? summary.measureCount : 'N/A' },
       { label: 'Calculated columns', value: hasSemanticModel ? summary.calculatedColumnCount : 'N/A' },
       { label: 'Relationships', value: hasSemanticModel ? summary.relationshipCount : 'N/A' },
-      { label: 'Report pages', value: summary.reportPageCount },
+      { label: 'Visible report pages', value: summary.visibleReportPageCount },
+      { label: 'Hidden report pages', value: summary.hiddenReportPageCount },
       { label: 'Visual count', value: summary.visualCount },
     ];
 
@@ -228,6 +232,7 @@
         <div class="d-flex gap-3 flex-wrap mb-2">
           <span class="badge">${page.visualCount || 0} visuals</span>
           <span class="badge">${(page.visuals || []).length || 0} inventory items</span>
+          <span class="badge ${page.hidden ? 'warning' : 'success'}">${page.hidden ? 'Hidden' : 'Visible'}</span>
         </div>
         <ul class="bullet-list">
           ${(page.visuals || []).map((visual) => `
@@ -299,22 +304,64 @@
     }
 
     const relationships = project.analysis.model.relationships;
-    const nodes = new Set();
+    const nodes = new Map();
+    const getNodeId = (name) => {
+      const tableName = String(name || 'Unknown Table');
+      if (!nodes.has(tableName)) nodes.set(tableName, `table${nodes.size + 1}`);
+      return nodes.get(tableName);
+    };
+    const escapeMermaidLabel = (value) => String(value || '')
+      .replace(/&/g, '#amp;')
+      .replace(/"/g, '#quot;')
+      .replace(/</g, '#lt;')
+      .replace(/>/g, '#gt;')
+      .replace(/[\r\n]+/g, ' ');
+    const getCardinalityMarkers = (relationship) => {
+      const cardinality = String(relationship.cardinality || 'Many-to-one').toLowerCase().replace(/[\s-]/g, '');
+      if (cardinality === 'onetoone') return { from: '1', to: '1' };
+      if (cardinality === 'onetomany') return { from: '1', to: '*' };
+      if (cardinality === 'manytomany') return { from: '*', to: '*' };
+      return { from: '*', to: '1' };
+    };
+    const manySideCounts = new Map();
+
     relationships.forEach((relationship) => {
-      nodes.add(relationship.from);
-      nodes.add(relationship.to);
+      getNodeId(relationship.from);
+      getNodeId(relationship.to);
+      const markers = getCardinalityMarkers(relationship);
+      if (markers.from === '*') manySideCounts.set(relationship.from, (manySideCounts.get(relationship.from) || 0) + 1);
+      if (markers.to === '*') manySideCounts.set(relationship.to, (manySideCounts.get(relationship.to) || 0) + 1);
     });
 
+    const factTable = [...manySideCounts.entries()]
+      .sort((left, right) => right[1] - left[1])[0];
+    const factTableName = factTable && factTable[1] > 1 ? factTable[0] : null;
     const mermaidDiagram = [
-      'graph LR',
-      ...[...nodes].map((node) => `    ${node.replace(/\s+/g, '_')}[${node}]`),
-      ...relationships.map((relationship) => `    ${relationship.from.replace(/\s+/g, '_')} -->|${relationship.cardinality || 'Many-to-one'}| ${relationship.to.replace(/\s+/g, '_')}`),
+      'flowchart TB',
+      '    classDef fact fill:#0d6ea8,color:#ffffff,stroke:#1ea5d9,stroke-width:3px;',
+      '    classDef dimension fill:#f8f9f7,color:#0e2847,stroke:#2aa9a3,stroke-width:1.5px;',
+      ...[...nodes].map(([name, id]) => `    ${id}["${escapeMermaidLabel(name)}"]`),
+      ...[...nodes].map(([name, id]) => `    class ${id} ${name === factTableName ? 'fact' : 'dimension'};`),
+      ...relationships.map((relationship) => {
+        const from = getNodeId(relationship.from);
+        const to = getNodeId(relationship.to);
+        const markers = getCardinalityMarkers(relationship);
+        const fromIsOneSide = markers.from === '1' && markers.to === '*';
+        const source = fromIsOneSide ? from : to;
+        const target = fromIsOneSide ? to : from;
+        return `    ${source} -->|${markers.from === markers.to ? `${markers.from} : ${markers.to}` : '1 : *'}| ${target}`;
+      }),
     ].join('\n');
 
     container.innerHTML = `
       <div class="panel-card">
         <div class="panel-title">Relationship map</div>
-        <div class="mermaid">${mermaidDiagram}</div>
+        <div class="schema-legend">
+          ${factTableName ? `<span class="schema-legend-item"><span class="schema-swatch fact"></span>Likely fact: ${escapeHtml(factTableName)}</span>` : ''}
+          <span class="schema-legend-item"><span class="schema-swatch dimension"></span>Dimension</span>
+          <span class="schema-legend-item"><strong>1 : *</strong> One-to-many</span>
+        </div>
+        <div class="mermaid"></div>
       </div>
       <div class="panel-card">
         <div class="panel-title">Relationship inventory</div>
@@ -332,8 +379,8 @@
             <tbody>
               ${relationships.map((relationship) => `
                 <tr>
-                  <td>${relationship.from}</td>
-                  <td>${relationship.to}</td>
+                  <td>${escapeHtml(relationship.from)}${relationship.fromColumn ? `<div class="small text-muted">${escapeHtml(relationship.fromColumn)}</div>` : ''}</td>
+                  <td>${escapeHtml(relationship.to)}${relationship.toColumn ? `<div class="small text-muted">${escapeHtml(relationship.toColumn)}</div>` : ''}</td>
                   <td>${relationship.cardinality || 'Many-to-one'}</td>
                   <td>${relationship.crossFilter || 'Single'}</td>
                   <td><span class="badge ${relationship.active ? 'success' : 'warning'}">${relationship.active ? 'Active' : 'Inactive'}</span></td>
@@ -345,10 +392,13 @@
       </div>
     `;
 
-    try {
-      mermaid.init();
-    } catch (error) {
-      // Ignore Mermaid initialization issues in unsupported runtime.
+    const diagram = container.querySelector('.mermaid');
+    diagram.textContent = mermaidDiagram;
+    if (document.getElementById('relationships-panel').classList.contains('active')) {
+      mermaid.run({ nodes: [diagram] }).catch((error) => {
+        console.error('The relationship diagram could not be rendered.', error);
+        diagram.innerHTML = '<div class="alert alert-warning mb-0">The relationship diagram could not be rendered. The relationship inventory is still available below.</div>';
+      });
     }
   }
 
