@@ -1,6 +1,7 @@
 (function () {
   const studio = (window.PBIPInsightStudio = window.PBIPInsightStudio || {});
   const app = (studio.app = {});
+  const minimumLoadingDuration = 3000;
 
   const state = {
     project: null,
@@ -13,6 +14,22 @@
     if (!overlay) return;
     loadingText.textContent = message;
     overlay.classList.toggle('hidden', !isLoading);
+  }
+
+  async function withAnalysisIndicator(action) {
+    const startedAt = Date.now();
+    setLoading(true, 'Analyzing...');
+
+    try {
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+      return await action();
+    } finally {
+      const remaining = minimumLoadingDuration - (Date.now() - startedAt);
+      if (remaining > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, remaining));
+      }
+      setLoading(false);
+    }
   }
 
   function setProjectStatus(message, tone = 'muted') {
@@ -798,9 +815,17 @@
       button.addEventListener('click', () => updateNav(button.dataset.target));
     });
 
-    const loadSampleProject = () => {
-      initializeSampleProject();
-      updateNav('overview-panel');
+    const loadSampleProject = async () => {
+      try {
+        await withAnalysisIndicator(() => {
+          initializeSampleProject();
+          updateNav('overview-panel');
+        });
+      } catch (error) {
+        console.error(error);
+        setProjectStatus('Sample load failed', 'warning');
+        alert(error.message);
+      }
     };
 
     document.getElementById('sample-project-btn').addEventListener('click', loadSampleProject);
@@ -815,16 +840,14 @@
       const selectedMessage = `Selected: ${rootFolder} (${target.files.length} files)`;
       document.getElementById('project-folder-status').textContent = selectedMessage;
       document.getElementById('landing-upload-status').textContent = `${target.files.length} files selected. Analyzing your project...`;
-      setLoading(true, 'Loading PBIP folder...');
       try {
-        await loadProjectFromFolder(target.files);
+        await withAnalysisIndicator(() => loadProjectFromFolder(target.files));
       } catch (error) {
         console.error(error);
         setProjectStatus('Upload failed', 'warning');
         document.getElementById('landing-upload-status').textContent = `Could not load folder: ${error.message}`;
         alert(error.message);
       } finally {
-        setLoading(false);
         target.value = '';
       }
     });
